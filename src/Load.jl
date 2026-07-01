@@ -1,0 +1,109 @@
+"""
+    Load
+
+Reads an `npia export` output directory into typed DataFrames.
+
+`npia export --novel <N> --out <DIR>` writes three files per novel:
+- `novel_<N>_episodes.csv`  — one row per episode (metadata + real view count merged)
+- `novel_<N>_reviews.csv`   — one row per review
+- `novel_<N>_manifest.json` — counts and file list for light integrity checking
+
+The Rust API is reverse-engineered and may drift, so parsing here is defensive:
+missing/empty cells become `missing` rather than raising, and reviews are read with
+whatever columns are present instead of a pinned schema.
+"""
+module Load
+
+using CSV, DataFrames, JSON3, Dates
+
+export Manifest, read_manifest, read_episodes, read_reviews, load
+
+"""
+    Manifest
+
+Mirrors `novel_<N>_manifest.json` written by `npia export`.
+"""
+struct Manifest
+    novel_no::Int
+    exported_at::String
+    sort::String
+    episode_count::Int
+    view_count_rows::Int
+    review_count::Int
+    files::Vector{String}
+end
+
+_episodes_path(dir, novel_no) = joinpath(dir, "novel_$(novel_no)_episodes.csv")
+_reviews_path(dir, novel_no) = joinpath(dir, "novel_$(novel_no)_reviews.csv")
+_manifest_path(dir, novel_no) = joinpath(dir, "novel_$(novel_no)_manifest.json")
+
+"""
+    read_manifest(dir, novel_no) -> Manifest
+
+Reads `novel_<novel_no>_manifest.json` from `dir`.
+"""
+function read_manifest(dir, novel_no)
+    path = _manifest_path(dir, novel_no)
+    isfile(path) || error("manifest not found: $path")
+    j = JSON3.read(read(path, String))
+    Manifest(
+        j.novel_no,
+        j.exported_at,
+        j.sort,
+        j.episode_count,
+        j.view_count_rows,
+        j.review_count,
+        collect(String, j.files),
+    )
+end
+
+# npia's `reg_date` is written as "YY.MM.DD" (2-digit year), not ISO 8601.
+# `dateformat"yy.mm.dd"` parses the 2-digit year literally (23 -> year 23), so the
+# century is added explicitly; Novelpia has no 20th-century content to disambiguate.
+function _parse_reg_date(s::Union{Missing,AbstractString})
+    ismissing(s) && return missing
+    isempty(s) && return missing
+    Date(s, dateformat"yy.mm.dd") + Year(2000)
+end
+
+"""
+    read_episodes(dir, novel_no) -> DataFrame
+
+Reads `novel_<novel_no>_episodes.csv` with typed columns:
+`episode_no::Int`, `title::String`, `is_free::Bool`,
+`reg_date::Union{Date,Missing}`, `count_view::Union{Int,Missing}`.
+"""
+function read_episodes(dir, novel_no)
+    path = _episodes_path(dir, novel_no)
+    isfile(path) || error("episodes file not found: $path")
+    df = CSV.read(path, DataFrame; missingstring = "")
+    df.reg_date = _parse_reg_date.(df.reg_date)
+    df
+end
+
+"""
+    read_reviews(dir, novel_no) -> DataFrame
+
+Reads `novel_<novel_no>_reviews.csv` permissively — whatever columns are present
+are kept as-is, since the review schema is not pinned by this package.
+"""
+function read_reviews(dir, novel_no)
+    path = _reviews_path(dir, novel_no)
+    isfile(path) || error("reviews file not found: $path")
+    CSV.read(path, DataFrame; missingstring = "")
+end
+
+"""
+    load(dir, novel_no) -> NamedTuple{(:manifest, :episodes, :reviews)}
+
+Convenience one-call ingestion of an `npia export` output directory.
+"""
+function load(dir, novel_no)
+    (
+        manifest = read_manifest(dir, novel_no),
+        episodes = read_episodes(dir, novel_no),
+        reviews = read_reviews(dir, novel_no),
+    )
+end
+
+end # module Load
