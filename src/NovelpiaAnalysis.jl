@@ -23,9 +23,10 @@ Stats.summary(data.episodes)
 module NovelpiaAnalysis
 
 include("Load.jl")
+include("Frames.jl")
 
-using .Load
+using .Load, .Frames
 
-export Load
+export Load, Frames
 
 end # module NovelpiaAnalysis
