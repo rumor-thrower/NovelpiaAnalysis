@@ -22,6 +22,10 @@ Stats.summary(data.episodes)
 """
 module NovelpiaAnalysis
 
-# Submodules are added in subsequent commits (Load, Frames, Stats, Charts).
+include("Load.jl")
+
+using .Load
+
+export Load
 
 end # module NovelpiaAnalysis
