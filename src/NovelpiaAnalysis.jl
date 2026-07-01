@@ -25,9 +25,10 @@ module NovelpiaAnalysis
 include("Load.jl")
 include("Frames.jl")
 include("Stats.jl")
+include("Charts.jl")
 
-using .Load, .Frames, .Stats
+using .Load, .Frames, .Stats, .Charts
 
-export Load, Frames, Stats
+export Load, Frames, Stats, Charts
 
 end # module NovelpiaAnalysis
