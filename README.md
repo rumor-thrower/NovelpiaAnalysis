@@ -1,5 +1,7 @@
 # NovelpiaAnalysis.jl
 
+[![CI](https://github.com/rumor-thrower/NovelpiaAnalysis/actions/workflows/CI.yml/badge.svg)](https://github.com/rumor-thrower/NovelpiaAnalysis/actions/workflows/CI.yml)
+
 Analysis layer for Novelpia web-novel data — ingestion of `npia export` output,
 DataFrame shaping, summary statistics, and chart rendering. Built on top of the
 Rust [`novelpia_api`](https://github.com/rumor-thrower/novelpia_api) / `npia` CLI.
