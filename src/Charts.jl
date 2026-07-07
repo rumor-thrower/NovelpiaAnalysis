@@ -19,6 +19,9 @@ _svg_text(s) =
     barchart(labels, vals; kwargs...) -> HTML
 
 Draws an SVG bar chart with `labels` (x-axis) and `vals` (bar heights).
+`vals` may include negative numbers: bars grow up from a zero baseline for
+positive values and down from it for negative values: the baseline itself
+shifts within the plot area to fit whichever mix of signs is present.
 
 # Keyword arguments
 - `colors`        : a single color string (applied to all bars) or a per-bar color
@@ -54,8 +57,12 @@ function barchart(
     n == 0 && return HTML("<p style='font-family:sans-serif'>no data</p>")
 
     H = height
-    max_v = max(maximum(vals), 1)
+    max_v = max(maximum(vals), 0.0)                   # extends the baseline up
+    min_v = min(minimum(vals), 0.0)                   # extends the baseline down
+    span = max_v - min_v
+    span = iszero(span) ? 1.0 : span
     bar_h = H - 100                                   # vertical area occupied by bars
+    baseline_y = (H - 60) - round(Int, -min_v / span * bar_h)
     color_at(i) = colors isa AbstractString ? colors : colors[i]
 
     # Width: fixed `width` takes priority; otherwise derive from `bar_w`;
@@ -66,10 +73,10 @@ function barchart(
 
     rects = IOBuffer()
     for (i, v) in enumerate(vals)
-        h = round(Int, v / max_v * bar_h)
+        h = round(Int, abs(v) / span * bar_h)
         x = 60 + (i - 1) * step
         cx = x + (bw ÷ 2)
-        bar_top = H - 60 - h
+        bar_top = v >= 0 ? baseline_y - h : baseline_y
         label = _svg_text(labels[i])
 
         print(rects, "<g>\n")
@@ -93,9 +100,10 @@ function barchart(
             )
         end
         vw = bold_values ? " font-weight=\"bold\"" : ""
+        value_y = v >= 0 ? bar_top - 4 : bar_top + h + 12
         print(
             rects,
-            "  <text x=\"$cx\" y=\"$(bar_top-4)\" text-anchor=\"middle\" ",
+            "  <text x=\"$cx\" y=\"$value_y\" text-anchor=\"middle\" ",
             "font-size=\"11\" fill=\"#333\"$vw>$v</text>\n",
         )
         print(rects, "</g>\n")
