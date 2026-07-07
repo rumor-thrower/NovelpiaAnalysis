@@ -7,8 +7,8 @@ module Frames
 
 using DataFrames
 
-export add_retention!, add_cumulative_views!, add_view_diff!, rising_episodes,
-    add_chapters!, chapter_base
+export add_retention!,
+    add_cumulative_views!, add_view_diff!, rising_episodes, add_chapters!, chapter_base
 
 """
     add_retention!(df) -> df
@@ -103,7 +103,7 @@ function add_chapters!(df)
     chapter_title = Vector{Union{Missing,String}}(undef, n)
     prev_base = nothing
     current = 0
-    for i in 1:n
+    for i = 1:n
         base = chapter_base(df.title[i])
         # A new run starts on the first row, on any change of base title, and around
         # every `missing` (which is never equal to anything, itself included).
