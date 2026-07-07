@@ -1,7 +1,7 @@
 name = "NovelpiaAnalysis"
 uuid = "7c9c1f6e-3b8e-4b7d-9b1a-2e6c5f0a9d3b"
 authors = ["rumor-thrower <87070008+rumor-thrower@users.noreply.github.com>"]
-version = "0.6.0"
+version = "0.6.1"
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"

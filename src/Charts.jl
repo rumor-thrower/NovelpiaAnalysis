@@ -26,6 +26,8 @@ shifts within the plot area to fit whichever mix of signs is present.
 # Keyword arguments
 - `colors`        : a single color string (applied to all bars) or a per-bar color
   vector. Defaults to `"#4e79a7"`.
+- `vals` may also contain `missing` entries (e.g. episode 1's `view_diff` or a
+  gap in `retention`); those bars are drawn with zero height and no value label.
 - `title`         : `<h4>` title above the chart. `nothing` means no title.
 - `width`,`height`: fixed dimensions if given. `width=nothing` (default) derives
   the width from the bar count.
@@ -57,8 +59,9 @@ function barchart(
     n == 0 && return HTML("<p style='font-family:sans-serif'>no data</p>")
 
     H = height
-    max_v = max(maximum(vals), 0.0)                   # extends the baseline up
-    min_v = min(minimum(vals), 0.0)                   # extends the baseline down
+    present = collect(skipmissing(vals))
+    max_v = isempty(present) ? 0.0 : max(maximum(present), 0.0)  # extends the baseline up
+    min_v = isempty(present) ? 0.0 : min(minimum(present), 0.0)  # extends the baseline down
     span = max_v - min_v
     span = iszero(span) ? 1.0 : span
     bar_h = H - 100                                   # vertical area occupied by bars
@@ -73,10 +76,10 @@ function barchart(
 
     rects = IOBuffer()
     for (i, v) in enumerate(vals)
-        h = round(Int, abs(v) / span * bar_h)
+        h = ismissing(v) ? 0 : round(Int, abs(v) / span * bar_h)
         x = 60 + (i - 1) * step
         cx = x + (bw ÷ 2)
-        bar_top = v >= 0 ? baseline_y - h : baseline_y
+        bar_top = (ismissing(v) || v >= 0) ? baseline_y - h : baseline_y
         label = _svg_text(labels[i])
 
         print(rects, "<g>\n")
@@ -99,13 +102,15 @@ function barchart(
                 "font-size=\"12\">$label</text>\n",
             )
         end
-        vw = bold_values ? " font-weight=\"bold\"" : ""
-        value_y = v >= 0 ? bar_top - 4 : bar_top + h + 12
-        print(
-            rects,
-            "  <text x=\"$cx\" y=\"$value_y\" text-anchor=\"middle\" ",
-            "font-size=\"11\" fill=\"#333\"$vw>$v</text>\n",
-        )
+        if !ismissing(v)
+            vw = bold_values ? " font-weight=\"bold\"" : ""
+            value_y = v >= 0 ? bar_top - 4 : bar_top + h + 12
+            print(
+                rects,
+                "  <text x=\"$cx\" y=\"$value_y\" text-anchor=\"middle\" ",
+                "font-size=\"11\" fill=\"#333\"$vw>$v</text>\n",
+            )
+        end
         print(rects, "</g>\n")
     end
 
