@@ -8,7 +8,12 @@ module Frames
 using DataFrames
 
 export add_retention!,
-    add_cumulative_views!, add_view_diff!, rising_episodes, add_chapters!, chapter_base
+    add_cumulative_views!,
+    add_view_diff!,
+    rising_episodes,
+    add_chapters!,
+    chapter_base,
+    add_chapter_length!
 
 """
     add_retention!(df) -> df
@@ -116,6 +121,25 @@ function add_chapters!(df)
     end
     df.chapter_no = chapter_no
     df.chapter_title = chapter_title
+    df
+end
+
+"""
+    add_chapter_length!(df) -> df
+
+Adds a `chapter_length` column: the number of episodes in each row's chapter
+(requires a `chapter_no` column, see [`add_chapters!`](@ref)), constant across
+every episode of the same chapter. An empty frame gets an empty column.
+"""
+function add_chapter_length!(df)
+    n = nrow(df)
+    if n == 0
+        df.chapter_length = Int[]
+        return df
+    end
+    counts = combine(groupby(df, :chapter_no), nrow => :chapter_length)
+    df.chapter_length =
+        leftjoin(select(df, :chapter_no), counts; on = :chapter_no, order = :left).chapter_length
     df
 end
 
