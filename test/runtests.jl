@@ -172,6 +172,32 @@ const NOVEL_NO = 127306
             Charts.barchart([1, 2], [356, 110]; outfile = outfile)
             @test isfile(outfile)
         end
+
+        # Negative and mixed-sign values must render valid (non-negative height,
+        # in-bounds) rects rather than the pre-fix negative-height/off-canvas bug.
+        _rect_attrs(svg) = [
+            m.captures for m in eachmatch(
+                r"<rect x=\"(-?\d+)\" y=\"(-?\d+)\" width=\"(-?\d+)\" height=\"(-?\d+)\"",
+                svg,
+            )
+        ]
+
+        neg_html = Charts.barchart(["a", "b"], [-1.0, -2.0])
+        for (x, y, w, h) in _rect_attrs(neg_html.content)
+            @test parse(Int, w) > 0
+            @test parse(Int, h) >= 0
+        end
+
+        mixed_html = Charts.barchart(["a", "b", "c"], [-10.0, 20.0, -5.0])
+        rects = _rect_attrs(mixed_html.content)
+        @test length(rects) == 3
+        for (x, y, w, h) in rects
+            @test parse(Int, h) >= 0
+        end
+        # The positive bar's rect must extend strictly above the baseline shared
+        # by the two negative bars' (equal) top y-coordinates.
+        ys = [parse(Int, r[2]) for r in rects]
+        @test ys[2] < ys[1] == ys[3]
     end
 end
 
