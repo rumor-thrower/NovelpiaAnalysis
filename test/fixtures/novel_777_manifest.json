@@ -1,0 +1,12 @@
+{
+  "novel_no": 777,
+  "exported_at": "2026-07-07T00:00:00Z",
+  "sort": "DOWN",
+  "episode_count": 12,
+  "view_count_rows": 12,
+  "review_count": 0,
+  "files": [
+    "novel_777_episodes.csv",
+    "novel_777_reviews.csv"
+  ]
+}
