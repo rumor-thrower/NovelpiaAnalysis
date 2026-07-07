@@ -38,6 +38,14 @@ const NOVEL_NO = 127306
 
         Frames.add_cumulative_views!(episodes)
         @test episodes.cumulative_views == cumsum(episodes.count_view)
+
+        Frames.add_view_diff!(episodes)
+        @test ismissing(episodes.view_diff[1])
+        @test episodes.view_diff[2:end] == diff(episodes.count_view)
+
+        rising = Frames.rising_episodes(episodes)
+        @test nrow(rising) == count(x -> !ismissing(x) && x > 0, episodes.view_diff)
+        @test all(rising.view_diff .> 0)
     end
 
     @testset "Stats" begin
