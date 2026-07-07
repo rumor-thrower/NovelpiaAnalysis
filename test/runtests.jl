@@ -48,6 +48,46 @@ const NOVEL_NO = 127306
         @test all(rising.view_diff .> 0)
     end
 
+    @testset "Frames.add_chapters!" begin
+        # chapter_base strips trailing part markers (ASCII/full-width parens, `- N`,
+        # `#N`, and spacing variants) but keeps leading chapter numbering and bare titles.
+        @test Frames.chapter_base("각성(1)") == "각성"
+        @test Frames.chapter_base("각성 (3)") == "각성"
+        @test Frames.chapter_base("각성（2）") == "각성"
+        @test Frames.chapter_base("수련 - 2") == "수련"
+        @test Frames.chapter_base("수련 -3") == "수련"
+        @test Frames.chapter_base("결전 #1") == "결전"
+        @test Frames.chapter_base("여담") == "여담"
+        @test Frames.chapter_base("3. 다시 몬드(1)") == "3. 다시 몬드"  # leading number kept
+        @test Frames.chapter_base("#04_보더 타운(3)") == "#04_보더 타운"
+        @test ismissing(Frames.chapter_base(missing))
+
+        episodes = Load.read_episodes(FIXTURES, 777)
+        Frames.add_chapters!(episodes)
+        # 6 chapters: 프롤로그 | 각성(×3) | 수련(×3) | 결전(×2) | 여담(×2 bare repeat) |
+        # 각성 again (reappearing base is a NEW chapter, not merged with the first).
+        @test episodes.chapter_no == [1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6]
+        @test maximum(episodes.chapter_no) == 6
+        @test unique(episodes.chapter_title[episodes.chapter_no .== 2]) == ["각성"]
+        @test episodes.chapter_title[end] == "각성"          # ch6 base equals ch2 base
+        @test episodes.chapter_no[end] == 6                  # but is a distinct chapter
+        # chapter_no is constant within a chapter and strictly increases across them.
+        @test issorted(episodes.chapter_no)
+        @test allunique(unique(episodes.chapter_no))
+
+        # A missing title never merges with either neighbour.
+        m = DataFrame(episode_no = 1:3, title = ["A", missing, "A"])
+        Frames.add_chapters!(m)
+        @test m.chapter_no == [1, 2, 3]
+        @test ismissing(m.chapter_title[2])
+
+        # Empty frame gets empty columns rather than erroring.
+        e = DataFrame(episode_no = Int[], title = String[])
+        Frames.add_chapters!(e)
+        @test nrow(e) == 0
+        @test hasproperty(e, :chapter_no) && hasproperty(e, :chapter_title)
+    end
+
     @testset "Stats" begin
         episodes = Load.read_episodes(FIXTURES, NOVEL_NO)
         s = Stats.summary(episodes)
