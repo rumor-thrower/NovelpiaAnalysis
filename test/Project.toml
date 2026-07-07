@@ -5,3 +5,8 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 JuliaFormatter = "98e50ef6-434e-11e9-1051-2b60c6c9e899"
 NovelpiaAnalysis = "7c9c1f6e-3b8e-4b7d-9b1a-2e6c5f0a9d3b"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+Aqua = "0.8.16"
+DataFrames = "1.8.2"
+JuliaFormatter = "2.10.1"
