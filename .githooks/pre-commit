@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+#
+# pre-commit: verify staged Julia files under src/ and test/ are formatted with
+# JuliaFormatter v2 default style, mirroring the CI "Format check" job in
+# .github/workflows/CI.yml. Blocks the commit if anything is unformatted.
+#
+# Uses the shared "@juliaformatter" environment so it does NOT run Pkg.add on
+# every commit. One-time setup (also done by .githooks/setup.sh):
+#   julia -e 'using Pkg; Pkg.activate("@juliaformatter"; shared=true); \
+#             Pkg.add(PackageSpec(name="JuliaFormatter", version="2"))'
+#
+# Bypass (not recommended): git commit --no-verify
+set -euo pipefail
+
+# Collect staged .jl files under src/ or test/ (Added/Copied/Modified/Renamed).
+mapfile -t files < <(git diff --cached --name-only --diff-filter=ACMR -- 'src/*.jl' 'test/*.jl')
+
+if [ ${#files[@]} -eq 0 ]; then
+    exit 0
+fi
+
+if ! command -v julia >/dev/null 2>&1; then
+    echo "pre-commit: 'julia' not found on PATH; skipping format check." >&2
+    exit 0
+fi
+
+echo "pre-commit: checking JuliaFormatter formatting on ${#files[@]} staged file(s)..."
+
+# Run from the shared @juliaformatter env (no Pkg.add here — must be pre-installed).
+# overwrite=false → check only, don't touch the working tree. Matches CI.
+status=0
+julia --color=yes --startup-file=no -e '
+    using Pkg
+    Pkg.activate("@juliaformatter"; shared=true, io=devnull)
+    try
+        @eval using JuliaFormatter
+    catch
+        @warn "JuliaFormatter not installed in the @juliaformatter env; skipping check. Run .githooks/setup.sh"
+        exit(42)
+    end
+    if !format(ARGS; overwrite=false)
+        @error "Some staged files are not formatted."
+        exit(1)
+    end' "${files[@]}" || status=$?
+
+if [ "$status" -eq 42 ]; then
+    # JuliaFormatter not set up yet — warn but do not block a fresh clone.
+    exit 0
+elif [ "$status" -ne 0 ]; then
+    echo "" >&2
+    echo "pre-commit: formatting check failed. Fix with:" >&2
+    echo "  julia -e 'using Pkg; Pkg.activate(\"@juliaformatter\"; shared=true); using JuliaFormatter; format([\"src\", \"test\"])'" >&2
+    echo "then 'git add' the changed files and commit again." >&2
+    echo "(To bypass: git commit --no-verify)" >&2
+    exit 1
+fi
+
+echo "pre-commit: formatting OK."
+exit 0
