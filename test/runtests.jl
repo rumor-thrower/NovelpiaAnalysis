@@ -12,7 +12,7 @@ const NOVEL_NO = 127306
         @test manifest.novel_no == NOVEL_NO
         @test manifest.episode_count == 2
         @test manifest.review_count == 0
-        @test manifest.files == ["novel_127306_episodes.csv", "novel_127306_reviews.csv"]
+        @test manifest.files == ["episodes.csv", "reviews.csv"]
 
         episodes = Load.read_episodes(FIXTURES, NOVEL_NO)
         @test nrow(episodes) == manifest.episode_count

@@ -3,10 +3,10 @@
 
 Reads an `npia export` output directory into typed DataFrames.
 
-`npia export --novel <N> --out <DIR>` writes three files per novel:
-- `novel_<N>_episodes.csv`  — one row per episode (metadata + real view count merged)
-- `novel_<N>_reviews.csv`   — one row per review
-- `novel_<N>_manifest.json` — counts and file list for light integrity checking
+`npia export --novel <N> --out <DIR>` writes three files under `<DIR>/<N>/`:
+- `episodes.csv`  — one row per episode (metadata + real view count merged)
+- `reviews.csv`   — one row per review
+- `manifest.json` — counts and file list for light integrity checking
 
 The Rust API is reverse-engineered and may drift, so parsing here is defensive:
 missing/empty cells become `missing` rather than raising, and reviews are read with
@@ -21,7 +21,7 @@ export Manifest, read_manifest, read_episodes, read_reviews, load
 """
     Manifest
 
-Mirrors `novel_<N>_manifest.json` written by `npia export`.
+Mirrors `manifest.json` written by `npia export`.
 """
 struct Manifest
     novel_no::Int
@@ -33,14 +33,15 @@ struct Manifest
     files::Vector{String}
 end
 
-_episodes_path(dir, novel_no) = joinpath(dir, "novel_$(novel_no)_episodes.csv")
-_reviews_path(dir, novel_no) = joinpath(dir, "novel_$(novel_no)_reviews.csv")
-_manifest_path(dir, novel_no) = joinpath(dir, "novel_$(novel_no)_manifest.json")
+_novel_dir(dir, novel_no) = joinpath(dir, string(novel_no))
+_episodes_path(dir, novel_no) = joinpath(_novel_dir(dir, novel_no), "episodes.csv")
+_reviews_path(dir, novel_no) = joinpath(_novel_dir(dir, novel_no), "reviews.csv")
+_manifest_path(dir, novel_no) = joinpath(_novel_dir(dir, novel_no), "manifest.json")
 
 """
     read_manifest(dir, novel_no) -> Manifest
 
-Reads `novel_<novel_no>_manifest.json` from `dir`.
+Reads `<dir>/<novel_no>/manifest.json`.
 """
 function read_manifest(dir, novel_no)
     path = _manifest_path(dir, novel_no)
@@ -69,7 +70,7 @@ end
 """
     read_episodes(dir, novel_no) -> DataFrame
 
-Reads `novel_<novel_no>_episodes.csv` with typed columns:
+Reads `<dir>/<novel_no>/episodes.csv` with typed columns:
 `episode_no::Int`, `title::String`, `is_free::Bool`,
 `reg_date::Union{Date,Missing}`, `count_view::Union{Int,Missing}`.
 """
@@ -84,7 +85,7 @@ end
 """
     read_reviews(dir, novel_no) -> DataFrame
 
-Reads `novel_<novel_no>_reviews.csv` permissively — whatever columns are present
+Reads `<dir>/<novel_no>/reviews.csv` permissively — whatever columns are present
 are kept as-is, since the review schema is not pinned by this package.
 """
 function read_reviews(dir, novel_no)

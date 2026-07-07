@@ -6,7 +6,7 @@
   "view_count_rows": 2,
   "review_count": 0,
   "files": [
-    "novel_127306_episodes.csv",
-    "novel_127306_reviews.csv"
+    "episodes.csv",
+    "reviews.csv"
   ]
 }
