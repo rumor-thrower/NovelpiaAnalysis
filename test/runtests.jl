@@ -201,6 +201,76 @@ const NOVEL_NO = 127306
         @test ismissing(cor_missing)
     end
 
+    @testset "Stats.spearman_cor" begin
+        # Perfectly monotone (but nonlinear) x/y -> Spearman is exactly ±1 while
+        # Pearson is not, which is the whole point of the rank correlation.
+        x = [1, 2, 3, 4, 5]
+        y = [1, 4, 9, 16, 25]  # strictly increasing, convex
+        @test Stats.spearman_cor(x, y) ≈ 1.0
+        @test Stats.spearman_cor(x, reverse(y)) ≈ -1.0
+        # Robustness: an extreme x-outlier that preserves the rank order leaves
+        # Spearman at exactly 1.0, where Pearson would be dragged toward it.
+        xo = [1, 2, 3, 4, 100]
+        yo = [1, 2, 3, 4, 5]
+        @test Stats.spearman_cor(xo, yo) ≈ 1.0
+    end
+
+    @testset "Stats.chapter_length_decline_leverage" begin
+        # Reuse the clean -1.0 correlation novel from above (ch lengths 2,3,4,
+        # slopes -10,-20,-30) and add one very long side-story chapter whose slope
+        # bucks the trend, to exercise the drop-long path.
+        df = DataFrame(
+            episode_no = 1:15,
+            chapter_no = [1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4],
+            count_view = [
+                100,
+                90,
+                100,
+                80,
+                60,
+                100,
+                70,
+                40,
+                10,
+                # ch4: length 6, but a gently *rising* trend (positive slope)
+                10,
+                20,
+                30,
+                40,
+                50,
+                60,
+            ],
+        )
+        Frames.add_chapter_length!(df)
+        chapters = Stats.chapter_decline_slopes(df)
+
+        # Default: all 4 usable chapters scored; one is "long" (> cutoff 5).
+        full = Stats.chapter_length_decline_leverage(chapters; long_chapter_cutoff = 5)
+        @test full.usable_n == 4
+        @test full.long_n == 1
+        @test full.scored_n == 4
+        # The long, positively-sloped chapter pulls the correlation off -1.0.
+        @test full.pearson > -1.0
+
+        # Dropping the long chapter restores the clean -1.0 (lengths 2,3,4 only).
+        dropped = Stats.chapter_length_decline_leverage(
+            chapters;
+            long_chapter_cutoff = 5,
+            drop_long_chapters = true,
+        )
+        @test dropped.scored_n == 3
+        @test dropped.long_n == 1
+        @test dropped.pearson ≈ -1.0
+        @test dropped.spearman ≈ -1.0
+
+        # Fewer than two scored chapters -> missing, not an error.
+        one = subset(chapters, :chapter_length => l -> l .== 2)
+        lev = Stats.chapter_length_decline_leverage(one; long_chapter_cutoff = 5)
+        @test ismissing(lev.pearson)
+        @test ismissing(lev.spearman)
+        @test lev.scored_n == 1
+    end
+
     @testset "Charts" begin
         html = Charts.barchart([1, 2], [356, 110]; title = "views")
         @test html isa Base.HTML
