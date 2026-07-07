@@ -88,6 +88,48 @@ const NOVEL_NO = 127306
         @test hasproperty(e, :chapter_no) && hasproperty(e, :chapter_title)
     end
 
+    @testset "Frames.chapter_base_no_serial" begin
+        # Strips a leading global episode serial ("012. ") before delegating to
+        # chapter_base, so same-chapter episodes numbered per-episode (not
+        # per-chapter) collapse to the same base.
+        @test Frames.chapter_base_no_serial("012. 뱀파이어 형사") == "뱀파이어 형사"
+        @test Frames.chapter_base_no_serial("013. 뱀파이어 형사") == "뱀파이어 형사"
+        @test Frames.chapter_base_no_serial("001. 능력 각성") == "능력 각성"
+        # Still strips trailing part markers same as chapter_base.
+        @test Frames.chapter_base_no_serial("012. 각성(1)") == "각성"
+        # A bare chapter-numbering prefix (no global serial) is also consumed —
+        # this is the intended behavioural difference from chapter_base, which
+        # keeps it. Callers pick whichever base_fn matches their novel's titling.
+        @test Frames.chapter_base_no_serial("3. 다시 몬드(1)") == "다시 몬드"
+        @test ismissing(Frames.chapter_base_no_serial(missing))
+
+        # Regression: a novel titled with a leading global episode serial (e.g.
+        # "012. 뱀파이어 형사", "013. 뱀파이어 형사" — the number increments every
+        # episode, not every chapter). With the default chapter_base, the serial
+        # makes every episode look like a new chapter; chapter_base_no_serial
+        # strips it first so same-chapter episodes collapse together.
+        episodes = DataFrame(
+            episode_no = 1:5,
+            title = [
+                "001. 능력 각성",
+                "002. 뱀파이어 형사",
+                "003. 뱀파이어 형사",
+                "004. 뱀파이어 형사",
+                "005. 영천류",
+            ],
+        )
+        Frames.add_chapters!(episodes; base_fn = Frames.chapter_base_no_serial)
+        @test episodes.chapter_no == [1, 2, 2, 2, 3]
+        @test episodes.chapter_title ==
+              ["능력 각성", "뱀파이어 형사", "뱀파이어 형사", "뱀파이어 형사", "영천류"]
+
+        # Without stripping the serial, the same data falls into one chapter per
+        # episode (the bug this was written to fix).
+        default_grouped = DataFrame(episode_no = 1:5, title = episodes.title)
+        Frames.add_chapters!(default_grouped)
+        @test default_grouped.chapter_no == [1, 2, 3, 4, 5]
+    end
+
     @testset "Frames.add_chapter_length!" begin
         episodes = Load.read_episodes(FIXTURES, 777)
         Frames.add_chapters!(episodes)

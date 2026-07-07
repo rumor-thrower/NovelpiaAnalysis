@@ -13,6 +13,7 @@ export add_retention!,
     rising_episodes,
     add_chapters!,
     chapter_base,
+    chapter_base_no_serial,
     add_chapter_length!
 
 """
@@ -87,21 +88,45 @@ unchanged. `missing` passes through.
 chapter_base(::Missing) = missing
 chapter_base(title::AbstractString) = strip(replace(title, _PART_MARKER => ""))
 
+# A leading *global episode serial*, as opposed to chapter numbering: a run of
+# digits followed by ". " (optionally zero-padded, e.g. "001. ", "012. ") at the
+# very start of the title. Unlike chapter numbering ("3화", "#04_", "S1."), this
+# form increments every episode regardless of chapter, so it must be stripped
+# before comparing titles — otherwise every episode looks like a new chapter.
+const _SERIAL_PREFIX = r"^\d+\.\s+"
+
 """
-    add_chapters!(df) -> df
+    chapter_base_no_serial(title) -> String
+
+Like [`chapter_base`](@ref), but additionally strips a leading *global episode
+serial* — a zero-padded number followed by `". "` (e.g. `"012. "`) — before
+computing the base. Use this instead of `chapter_base` for novels whose titles
+are numbered by episode rather than by chapter (e.g. `"012. 뱀파이어 형사"`,
+`"013. 뱀파이어 형사"`, both reducing to `"뱀파이어 형사"`), where `chapter_base`
+alone would treat every episode as its own chapter. `missing` passes through.
+"""
+chapter_base_no_serial(::Missing) = missing
+chapter_base_no_serial(title::AbstractString) =
+    chapter_base(replace(title, _SERIAL_PREFIX => ""))
+
+"""
+    add_chapters!(df; base_fn=chapter_base) -> df
 
 Groups episodes into chapters (단원) and adds two columns, ordered by `episode_no`:
 
 - `chapter_no::Int` — 1-based chapter index; equal for every episode in a chapter.
-- `chapter_title::String` — the chapter's base title (see [`chapter_base`](@ref)).
+- `chapter_title::String` — the chapter's base title (per `base_fn`).
 
-Episodes are grouped into maximal *consecutive* runs sharing the same
-[`chapter_base`](@ref): the run breaks whenever the base title changes, so a base
-title that reappears later (after an intervening chapter) starts a fresh chapter
-rather than merging non-adjacent episodes. A `missing` title forms a base of its
-own and never merges with a neighbour. An empty frame gets empty columns.
+Episodes are grouped into maximal *consecutive* runs sharing the same base title,
+as computed by `base_fn` (default [`chapter_base`](@ref); pass
+[`chapter_base_no_serial`](@ref) for novels titled with a leading global episode
+serial instead of chapter numbering). The run breaks whenever the base title
+changes, so a base title that reappears later (after an intervening chapter)
+starts a fresh chapter rather than merging non-adjacent episodes. A `missing`
+title forms a base of its own and never merges with a neighbour. An empty frame
+gets empty columns.
 """
-function add_chapters!(df)
+function add_chapters!(df; base_fn = chapter_base)
     sort!(df, :episode_no)
     n = nrow(df)
     chapter_no = Vector{Int}(undef, n)
@@ -109,7 +134,7 @@ function add_chapters!(df)
     prev_base = nothing
     current = 0
     for i = 1:n
-        base = chapter_base(df.title[i])
+        base = base_fn(df.title[i])
         # A new run starts on the first row, on any change of base title, and around
         # every `missing` (which is never equal to anything, itself included).
         if i == 1 || ismissing(base) || ismissing(prev_base) || base != prev_base
