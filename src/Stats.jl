@@ -8,7 +8,11 @@ module Stats
 using DataFrames, Statistics
 
 export summary,
-    conditional_ratio, chapter_decline_slopes, chapter_length_decline_correlation
+    conditional_ratio,
+    chapter_decline_slopes,
+    chapter_length_decline_correlation,
+    spearman_cor,
+    chapter_length_decline_leverage
 
 """
     summary(episodes) -> NamedTuple
@@ -113,6 +117,66 @@ function chapter_length_decline_correlation(df)
         (nrow(usable) < 2 || iszero(var(usable.chapter_length))) ? missing :
         cor(float.(usable.chapter_length), float.(usable.slope))
     (correlation, chapters)
+end
+
+"""
+    spearman_cor(x, y) -> Float64
+
+Spearman rank correlation: Pearson's [`Statistics.cor`](@ref) applied to the
+ranks of `x` and `y`. Ranks come from `sortperm(sortperm(·))`, which breaks ties
+by original position rather than averaging them (`competerank`-style average
+ranks aren't needed for a robustness cross-check, and this avoids a `StatsBase`
+dependency).
+
+Being rank-based, it is far less sensitive than Pearson to a handful of extreme
+values, so a large Pearson/Spearman gap is itself the tell that the Pearson value
+is outlier-driven.
+"""
+function spearman_cor(x, y)
+    rank(v) = sortperm(sortperm(collect(v)))
+    cor(float.(rank(x)), float.(rank(y)))
+end
+
+"""
+    chapter_length_decline_leverage(chapters; long_chapter_cutoff, drop_long_chapters=false)
+        -> NamedTuple
+
+Leverage analysis over the per-chapter DataFrame from
+[`chapter_length_decline_correlation`](@ref) (or [`chapter_decline_slopes`](@ref)):
+recomputes the length-vs-decline correlation on a subset and reports it alongside
+a rank correlation and chapter counts, so a few very long (typically
+post-completion side-story) chapters can't define the regression line by
+themselves.
+
+Chapters with a `missing` slope are dropped first (the `usable` set). `long`
+chapters are those longer than `long_chapter_cutoff` episodes. When
+`drop_long_chapters` is `true` the correlations are computed over just the
+chapters at or below the cutoff; otherwise over the full `usable` set.
+
+Returns `(; pearson, spearman, usable_n, long_n, scored_n)`. `pearson` and
+`spearman` are `missing` when fewer than two chapters are scored or their
+`chapter_length` is constant (undefined correlation).
+"""
+function chapter_length_decline_leverage(
+    chapters;
+    long_chapter_cutoff,
+    drop_long_chapters = false,
+)
+    usable = subset(chapters, :slope => x -> .!ismissing.(x))
+    long = subset(usable, :chapter_length => l -> l .> long_chapter_cutoff)
+    scored =
+        drop_long_chapters ?
+        subset(usable, :chapter_length => l -> l .<= long_chapter_cutoff) : usable
+    undefined = nrow(scored) < 2 || iszero(var(scored.chapter_length))
+    pearson = undefined ? missing : cor(float.(scored.chapter_length), float.(scored.slope))
+    spearman = undefined ? missing : spearman_cor(scored.chapter_length, scored.slope)
+    (
+        pearson = pearson,
+        spearman = spearman,
+        usable_n = nrow(usable),
+        long_n = nrow(long),
+        scored_n = nrow(scored),
+    )
 end
 
 end # module Stats
