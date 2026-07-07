@@ -88,6 +88,21 @@ const NOVEL_NO = 127306
         @test hasproperty(e, :chapter_no) && hasproperty(e, :chapter_title)
     end
 
+    @testset "Frames.add_chapter_length!" begin
+        episodes = Load.read_episodes(FIXTURES, 777)
+        Frames.add_chapters!(episodes)
+        Frames.add_chapter_length!(episodes)
+        # Same chapter sizes as the add_chapters! testset: 1,3,3,2,2,1
+        @test episodes.chapter_length == [1, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 1]
+        @test episodes.chapter_length[episodes.chapter_no .== 2] == fill(3, 3)
+
+        e = DataFrame(episode_no = Int[], title = String[])
+        Frames.add_chapters!(e)
+        Frames.add_chapter_length!(e)
+        @test nrow(e) == 0
+        @test hasproperty(e, :chapter_length)
+    end
+
     @testset "Stats" begin
         episodes = Load.read_episodes(FIXTURES, NOVEL_NO)
         s = Stats.summary(episodes)
@@ -105,6 +120,43 @@ const NOVEL_NO = 127306
         ratio0, matched0 = Stats.conditional_ratio(empty_df, :is_free => identity)
         @test ratio0 == 0.0
         @test nrow(matched0) == 0
+    end
+
+    @testset "Stats.chapter_decline_slopes / chapter_length_decline_correlation" begin
+        # Synthetic novel: 3 chapters, each with a perfectly linear within-chapter
+        # trend, engineered so the decline rate scales with chapter length --
+        # i.e. a clean case of the "episode 장편화 accelerates decline" hypothesis.
+        # ch1 (length 2): 100 -> 90            (slope -10)
+        # ch2 (length 3): 100 -> 80 -> 60       (slope -20)
+        # ch3 (length 4): 100 -> 70 -> 40 -> 10 (slope -30)
+        df = DataFrame(
+            episode_no = 1:9,
+            chapter_no = [1, 1, 2, 2, 2, 3, 3, 3, 3],
+            count_view = [100, 90, 100, 80, 60, 100, 70, 40, 10],
+        )
+        Frames.add_chapter_length!(df)
+        @test df.chapter_length == [2, 2, 3, 3, 3, 4, 4, 4, 4]
+
+        chapters = Stats.chapter_decline_slopes(df)
+        @test nrow(chapters) == 3
+        @test sort(chapters.chapter_length) == [2, 3, 4]
+        by_length = Dict(r.chapter_length => r.slope for r in eachrow(chapters))
+        @test by_length[2] ≈ -10
+        @test by_length[3] ≈ -20
+        @test by_length[4] ≈ -30
+
+        cor_val, chapters2 = Stats.chapter_length_decline_correlation(df)
+        @test chapters2 == chapters
+        @test cor_val ≈ -1.0  # longer chapters decline strictly faster here
+
+        # A single-episode chapter yields a missing slope and is excluded from
+        # the correlation, rather than erroring.
+        single = DataFrame(episode_no = [1], chapter_no = [1], count_view = [50])
+        Frames.add_chapter_length!(single)
+        single_chapters = Stats.chapter_decline_slopes(single)
+        @test ismissing(only(single_chapters.slope))
+        cor_missing, _ = Stats.chapter_length_decline_correlation(single)
+        @test ismissing(cor_missing)
     end
 
     @testset "Charts" begin
