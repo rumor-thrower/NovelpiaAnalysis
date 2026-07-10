@@ -182,6 +182,38 @@ const NOVEL_NO = 127306
         @test s.total_views == 356 + 110
         @test s.max_views == 356
 
+        @test s.median_views == (356 + 110) / 2
+        @test s.first_last_retention == 110 / 356
+
+        # `summary` reports every view aggregate as `missing` when no `count_view`
+        # survives, whether the frame is empty or merely all-`missing`. The latter
+        # is why the empty-`views` guard cannot be an `isempty(episodes)` check.
+        views_summary(vs, free = trues(length(vs))) = Stats.summary(
+            DataFrame(count_view = Union{Int,Missing}[vs...], is_free = collect(free)),
+        )
+
+        for empty_case in
+            (views_summary(()), views_summary((missing, missing), (true, false)))
+            @test ismissing(empty_case.total_views)
+            @test ismissing(empty_case.median_views)
+            @test ismissing(empty_case.max_views)
+            @test ismissing(empty_case.first_last_retention)
+        end
+        @test iszero(views_summary(()).episode_count)
+        @test views_summary((missing, missing), (true, false)).episode_count == 2
+        @test views_summary((missing, missing), (true, false)).paid_count == 1
+
+        # Retention alone is undefined when an endpoint is `missing` or the first
+        # view is zero; the aggregates over the surviving views stay well-defined.
+        zero_first = views_summary((0, 50))
+        @test ismissing(zero_first.first_last_retention)
+        @test zero_first.total_views == 50
+
+        missing_first = views_summary((missing, 50))
+        @test ismissing(missing_first.first_last_retention)
+        @test missing_first.total_views == 50
+        @test missing_first.max_views == 50
+
         ratio, matched, total = Stats.conditional_ratio(episodes, :is_free => identity)
         @test ratio == 1.0
         @test nrow(matched) == 2
