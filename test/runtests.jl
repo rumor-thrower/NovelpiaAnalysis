@@ -387,6 +387,16 @@ const NOVEL_NO = 127306
         # by the two negative bars' (equal) top y-coordinates.
         ys = [parse(Int, r[2]) for r in rects]
         @test ys[2] < ys[1] == ys[3]
+
+        legend_html = Charts.barchart(
+            ["a", "b"],
+            [1, 2];
+            colors = ["#4e79a7", "#f28e2b"],
+            legend = [("A", "#4e79a7"), ("B", "#f28e2b")],
+        )
+        @test occursin("translate(", legend_html.content)
+        @test occursin(">A</text>", legend_html.content)
+        @test occursin(">B</text>", legend_html.content)
     end
 end
 
