@@ -152,7 +152,7 @@ every episode of the same chapter. An empty frame gets an empty column.
 """
 function add_chapter_length!(df)
     n = nrow(df)
-    if n == 0
+    if iszero(n)
         df.chapter_length = Int[]
         return df
     end
