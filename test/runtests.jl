@@ -182,14 +182,24 @@ const NOVEL_NO = 127306
         @test s.total_views == 356 + 110
         @test s.max_views == 356
 
-        ratio, matched = Stats.conditional_ratio(episodes, :is_free => identity)
+        ratio, matched, total = Stats.conditional_ratio(episodes, :is_free => identity)
         @test ratio == 1.0
         @test nrow(matched) == 2
+        @test total == 2
 
+        # A zero ratio is ambiguous on its own: `total` is what separates "no rows
+        # to match" (undefined) from "rows existed, none matched" (a real zero).
         empty_df = DataFrame(is_free = Bool[])
-        ratio0, matched0 = Stats.conditional_ratio(empty_df, :is_free => identity)
+        ratio0, matched0, total0 = Stats.conditional_ratio(empty_df, :is_free => identity)
         @test iszero(ratio0)
         @test isempty(matched0)
+        @test iszero(total0)
+
+        none_match = DataFrame(is_free = [false, false, false])
+        ration, matchedn, totaln = Stats.conditional_ratio(none_match, :is_free => identity)
+        @test iszero(ration)
+        @test isempty(matchedn)
+        @test totaln == 3
     end
 
     @testset "Stats.chapter_decline_slopes / chapter_length_decline_correlation" begin
