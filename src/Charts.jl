@@ -56,7 +56,7 @@ function barchart(
     outfile = nothing,
 )
     n = length(labels)
-    n == 0 && return HTML("<p style='font-family:sans-serif'>no data</p>")
+    iszero(n) && return HTML("<p style='font-family:sans-serif'>no data</p>")
 
     H = height
     present = collect(skipmissing(vals))

@@ -11,7 +11,7 @@ const NOVEL_NO = 127306
         manifest = Load.read_manifest(FIXTURES, NOVEL_NO)
         @test manifest.novel_no == NOVEL_NO
         @test manifest.episode_count == 2
-        @test manifest.review_count == 0
+        @test iszero(manifest.review_count)
         @test manifest.files == ["episodes.csv", "reviews.csv"]
 
         episodes = Load.read_episodes(FIXTURES, NOVEL_NO)
@@ -37,7 +37,7 @@ const NOVEL_NO = 127306
         # file, so downstream Frames functions (sort! on :episode_no etc.)
         # don't need to special-case a columnless frame.
         manifest = Load.read_manifest(FIXTURES, 2)
-        @test manifest.episode_count == 0
+        @test iszero(manifest.episode_count)
 
         episodes = Load.read_episodes(FIXTURES, 2)
         @test isempty(episodes)
@@ -178,7 +178,7 @@ const NOVEL_NO = 127306
         s = Stats.summary(episodes)
         @test s.episode_count == 2
         @test s.free_count == 2
-        @test s.paid_count == 0
+        @test iszero(s.paid_count)
         @test s.total_views == 356 + 110
         @test s.max_views == 356
 
@@ -188,7 +188,7 @@ const NOVEL_NO = 127306
 
         empty_df = DataFrame(is_free = Bool[])
         ratio0, matched0 = Stats.conditional_ratio(empty_df, :is_free => identity)
-        @test ratio0 == 0.0
+        @test iszero(ratio0)
         @test isempty(matched0)
     end
 
