@@ -241,6 +241,13 @@ const NOVEL_NO = 127306
         xo = [1, 2, 3, 4, 100]
         yo = [1, 2, 3, 4, 5]
         @test Stats.spearman_cor(xo, yo) ≈ 1.0
+        # Too few pairs for a correlation to vary: `cor` would throw on the empty
+        # sample and return NaN on the single pair, so both report `missing`.
+        @test ismissing(Stats.spearman_cor(Int[], Int[]))
+        @test ismissing(Stats.spearman_cor([1], [1]))
+        # Two pairs are enough, even all-tied ones: ranking breaks ties by
+        # position, so the ranks vary and the correlation is defined.
+        @test Stats.spearman_cor([7, 7], [7, 7]) ≈ 1.0
     end
 
     @testset "Stats.chapter_length_decline_leverage" begin

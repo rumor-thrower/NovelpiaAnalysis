@@ -124,7 +124,7 @@ function chapter_length_decline_correlation(df)
 end
 
 """
-    spearman_cor(x, y) -> Float64
+    spearman_cor(x, y) -> Union{Float64,Missing}
 
 Spearman rank correlation: Pearson's [`Statistics.cor`](@ref) applied to the
 ranks of `x` and `y`. Ranks come from `sortperm(sortperm(·))`, which breaks ties
@@ -135,9 +135,16 @@ dependency).
 Being rank-based, it is far less sensitive than Pearson to a handful of extreme
 values, so a large Pearson/Spearman gap is itself the tell that the Pearson value
 is outlier-driven.
+
+A rank correlation needs at least two pairs to vary, so fewer than two is
+`missing`: `cor` would throw on an empty sample and return `NaN` for a single
+pair. Two or more pairs always have a defined correlation, because ranking by
+`sortperm(sortperm(·))` breaks ties by position and so always yields a
+permutation of `1:n`, never a constant vector.
 """
 function spearman_cor(x, y)
     rank(v) = sortperm(sortperm(collect(v)))
+    length(x) < 2 && return missing
     cor(float.(rank(x)), float.(rank(y)))
 end
 
