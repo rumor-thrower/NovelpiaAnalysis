@@ -68,8 +68,12 @@ remain after dropping any pair with a `missing` value, or if `x` is constant
 """
 function _ols_slope(x, y)
     keep = .!ismissing.(x) .& .!ismissing.(y)
-    xs = float.(x[keep])
-    ys = float.(y[keep])
+    # `keep` masks out every `missing` in both inputs, so the survivors carry none;
+    # `disallowmissing` narrows the element type to match, which keeps the OLS
+    # arithmetic below type-stable (a lingering `Missing` in the element type would
+    # otherwise widen `ybar` and the returned slope to `Any`).
+    xs = Float64.(disallowmissing(x[keep]))
+    ys = Float64.(disallowmissing(y[keep]))
     length(xs) < 2 && return missing
     xbar = mean(xs)
     ybar = mean(ys)
