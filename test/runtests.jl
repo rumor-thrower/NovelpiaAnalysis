@@ -22,12 +22,12 @@ const NOVEL_NO = 127306
         @test episodes.count_view == [356, 110]
 
         reviews = Load.read_reviews(FIXTURES, NOVEL_NO)
-        @test nrow(reviews) == 0
+        @test isempty(reviews)
 
         data = Load.load(FIXTURES, NOVEL_NO)
         @test data.manifest.novel_no == NOVEL_NO
         @test nrow(data.episodes) == 2
-        @test nrow(data.reviews) == 0
+        @test isempty(data.reviews)
     end
 
     @testset "Load deleted novel (empty episodes.csv)" begin
@@ -40,7 +40,7 @@ const NOVEL_NO = 127306
         @test manifest.episode_count == 0
 
         episodes = Load.read_episodes(FIXTURES, 2)
-        @test nrow(episodes) == 0
+        @test isempty(episodes)
         @test Set(names(episodes)) ==
               Set(["count_view", "episode_no", "is_adult", "is_free", "reg_date", "title"])
         @test eltype(episodes.episode_no) == Int
@@ -51,11 +51,11 @@ const NOVEL_NO = 127306
         Frames.add_view_diff!(episodes)
         Frames.add_chapters!(episodes)
         Frames.add_chapter_length!(episodes)
-        @test nrow(episodes) == 0
+        @test isempty(episodes)
 
         data = Load.load(FIXTURES, 2)
-        @test nrow(data.episodes) == 0
-        @test nrow(data.reviews) == 0
+        @test isempty(data.episodes)
+        @test isempty(data.reviews)
     end
 
     @testset "Frames" begin
@@ -112,7 +112,7 @@ const NOVEL_NO = 127306
         # Empty frame gets empty columns rather than erroring.
         e = DataFrame(episode_no = Int[], title = String[])
         Frames.add_chapters!(e)
-        @test nrow(e) == 0
+        @test isempty(e)
         @test hasproperty(e, :chapter_no) && hasproperty(e, :chapter_title)
     end
 
@@ -169,7 +169,7 @@ const NOVEL_NO = 127306
         e = DataFrame(episode_no = Int[], title = String[])
         Frames.add_chapters!(e)
         Frames.add_chapter_length!(e)
-        @test nrow(e) == 0
+        @test isempty(e)
         @test hasproperty(e, :chapter_length)
     end
 
@@ -189,7 +189,7 @@ const NOVEL_NO = 127306
         empty_df = DataFrame(is_free = Bool[])
         ratio0, matched0 = Stats.conditional_ratio(empty_df, :is_free => identity)
         @test ratio0 == 0.0
-        @test nrow(matched0) == 0
+        @test isempty(matched0)
     end
 
     @testset "Stats.chapter_decline_slopes / chapter_length_decline_correlation" begin

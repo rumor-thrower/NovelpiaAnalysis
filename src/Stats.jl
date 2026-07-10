@@ -25,7 +25,7 @@ function summary(episodes)
     views = skipmissing(episodes.count_view) |> collect
     n = nrow(episodes)
     free_count = count(episodes.is_free)
-    first_last_retention = if isempty(views) || nrow(episodes) == 0
+    first_last_retention = if isempty(views) || isempty(episodes)
         missing
     else
         first_view = episodes.count_view[1]
