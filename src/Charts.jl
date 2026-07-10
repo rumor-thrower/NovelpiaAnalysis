@@ -115,7 +115,7 @@ function barchart(
     end
 
     legend_svg = ""
-    if legend !== nothing
+    if !isnothing(legend)
         parts = String[]
         for (i, (l, c)) in enumerate(legend)
             push!(
