@@ -84,7 +84,7 @@ function read_episodes(dir, novel_no)
     path = _episodes_path(dir, novel_no)
     isfile(path) || error("episodes file not found: $path")
     df = CSV.read(path, DataFrame; missingstring = "")
-    if ncol(df) == 0
+    if iszero(ncol(df))
         return DataFrame(
             count_view = Union{Int,Missing}[],
             episode_no = Int[],
