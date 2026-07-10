@@ -72,7 +72,7 @@ const NOVEL_NO = 127306
         @test episodes.view_diff[2:end] == diff(episodes.count_view)
 
         rising = Frames.rising_episodes(episodes)
-        @test nrow(rising) == count(x -> !ismissing(x) && x > 0, episodes.view_diff)
+        @test nrow(rising) == count(>(0), skipmissing(episodes.view_diff))
         @test all(rising.view_diff .> 0)
     end
 
