@@ -15,6 +15,38 @@ export summary,
     chapter_length_decline_leverage
 
 """
+    _view_aggregates(episodes, views) -> NamedTuple
+
+Aggregate the view columns of `summary`: total/median/max over `views` (the
+non-`missing` `count_view` values), plus first-to-last retention read off the
+raw `episodes.count_view`.
+
+All four fields are `missing` when `views` is empty — no `count_view` survived,
+so no aggregate is defined. Retention is additionally `missing` when either
+endpoint is `missing` or the first view is zero (an undefined ratio), even
+though the aggregates over the surviving views remain well-defined.
+"""
+function _view_aggregates(episodes, views)
+    isempty(views) && return (
+        total_views = missing,
+        median_views = missing,
+        max_views = missing,
+        first_last_retention = missing,
+    )
+    first_view = episodes.count_view[1]
+    last_view = episodes.count_view[end]
+    retention =
+        (ismissing(first_view) || ismissing(last_view) || iszero(first_view)) ? missing :
+        last_view / first_view
+    (
+        total_views = sum(views),
+        median_views = median(views),
+        max_views = maximum(views),
+        first_last_retention = retention,
+    )
+end
+
+"""
     summary(episodes) -> NamedTuple
 
 Summary statistics over an episode DataFrame: episode count, free/paid split,
@@ -25,22 +57,11 @@ function summary(episodes)
     views = skipmissing(episodes.count_view) |> collect
     n = nrow(episodes)
     free_count = count(episodes.is_free)
-    first_last_retention = if isempty(views) || isempty(episodes)
-        missing
-    else
-        first_view = episodes.count_view[1]
-        last_view = episodes.count_view[end]
-        (ismissing(first_view) || ismissing(last_view) || iszero(first_view)) ?
-        missing : last_view / first_view
-    end
     (
         episode_count = n,
         free_count = free_count,
         paid_count = n - free_count,
-        total_views = isempty(views) ? missing : sum(views),
-        median_views = isempty(views) ? missing : median(views),
-        max_views = isempty(views) ? missing : maximum(views),
-        first_last_retention = first_last_retention,
+        _view_aggregates(episodes, views)...,
     )
 end
 
