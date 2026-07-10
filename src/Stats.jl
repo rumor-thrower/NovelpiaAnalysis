@@ -45,18 +45,23 @@ function summary(episodes)
 end
 
 """
-    conditional_ratio(df, condition) -> Tuple{Float64, DataFrame}
+    conditional_ratio(df, condition) -> Tuple{Float64, DataFrame, Int}
 
 Fraction of rows in `df` matching `condition` (a column-selector pair or vector
-of pairs, as accepted by `DataFrames.subset`), alongside the matching subframe.
-Returns `(0.0, empty_subframe)` for an empty `df` rather than dividing by zero.
+of pairs, as accepted by `DataFrames.subset`), alongside the matching subframe
+and the row count the ratio was taken over.
+
+An empty `df` yields `(0.0, empty_subframe, 0)` rather than dividing by zero.
+That `0.0` is indistinguishable from a genuine "none of the rows matched", so
+callers that need to tell "0% of nothing" (undefined) from "0% of `n`" (a real
+zero) must branch on `total`, not on the ratio.
 """
 function conditional_ratio(df, condition)
     conditions = condition isa Pair ? [condition] : condition
     matched = subset(df, conditions...)
     total = nrow(df)
     ratio = iszero(total) ? 0.0 : nrow(matched) / total
-    (ratio, matched)
+    (ratio, matched, total)
 end
 
 """
