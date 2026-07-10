@@ -1,0 +1,12 @@
+{
+  "novel_no": 2,
+  "exported_at": "2026-07-08T12:48:47Z",
+  "sort": "DOWN",
+  "episode_count": 0,
+  "view_count_rows": 0,
+  "review_count": 0,
+  "files": [
+    "episodes.csv",
+    "reviews.csv"
+  ]
+}
