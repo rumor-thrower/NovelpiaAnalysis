@@ -407,16 +407,9 @@ const NOVEL_NO = 127306
         # outside the viewport and got clipped by the notebook's cell box.
         # Labels now size the SVG, so their boxes must land inside it.
 
-        # Independent re-derivation of the renderer's width estimate: if the two
-        # drift apart, the containment assertions below are what catches it.
-        char_em(c) =
-            c in 'ᄀ':'ᇿ' ||
-            c in '⺀':'鿿' ||
-            c in 'ꥠ':'꥿' ||
-            c in '가':'퟿' ||
-            c in '＀':'｠' ? 1.0 : 0.55
-        widest(label, fs) =
-            maximum(sum(char_em, ln; init = 0.0) for ln in split(label, '\n')) * fs
+        # Widths come from the renderer's own em model. What's under test is the
+        # padding arithmetic around it, which `corners` re-derives from the SVG.
+        widest = Charts._line_px
 
         # Every x-axis <text>: anchor, rotation, and its stacked tspan lines.
         function axis_labels(svg)
