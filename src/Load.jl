@@ -71,18 +71,29 @@ end
     read_episodes(dir, novel_no) -> DataFrame
 
 Reads `<dir>/<novel_no>/episodes.csv` with typed columns:
-`episode_no::Int`, `title::String`, `is_free::Bool`,
+`episode_no::Int`, `title::String`, `is_free::Bool`, `is_adult::Bool`,
 `reg_date::Union{Date,Missing}`, `count_view::Union{Int,Missing}`.
 
 A novel with zero episodes (e.g. deleted from Novelpia) writes a completely
 empty `episodes.csv` — no header row at all — so `CSV.read` yields a
-0-row/0-column frame with no `reg_date` to parse; that case is returned as-is.
+0-row/0-column frame. That case is normalized to the same empty-but-typed
+schema as a populated file, so downstream code (e.g. `Frames` functions
+sorting by `:episode_no`) doesn't need to special-case it.
 """
 function read_episodes(dir, novel_no)
     path = _episodes_path(dir, novel_no)
     isfile(path) || error("episodes file not found: $path")
     df = CSV.read(path, DataFrame; missingstring = "")
-    ncol(df) == 0 && return df
+    if ncol(df) == 0
+        return DataFrame(
+            count_view = Union{Int,Missing}[],
+            episode_no = Int[],
+            is_adult = Bool[],
+            is_free = Bool[],
+            reg_date = Union{Date,Missing}[],
+            title = String[],
+        )
+    end
     df.reg_date = _parse_reg_date.(df.reg_date)
     df
 end

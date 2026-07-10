@@ -32,13 +32,26 @@ const NOVEL_NO = 127306
 
     @testset "Load deleted novel (empty episodes.csv)" begin
         # A novel removed from Novelpia (episode_count == 0) writes a
-        # completely empty episodes.csv with no header row.
+        # completely empty episodes.csv with no header row. read_episodes
+        # normalizes this to the same typed-but-empty schema as a populated
+        # file, so downstream Frames functions (sort! on :episode_no etc.)
+        # don't need to special-case a columnless frame.
         manifest = Load.read_manifest(FIXTURES, 2)
         @test manifest.episode_count == 0
 
         episodes = Load.read_episodes(FIXTURES, 2)
         @test nrow(episodes) == 0
-        @test ncol(episodes) == 0
+        @test Set(names(episodes)) ==
+              Set(["count_view", "episode_no", "is_adult", "is_free", "reg_date", "title"])
+        @test eltype(episodes.episode_no) == Int
+        @test eltype(episodes.is_free) == Bool
+
+        Frames.add_retention!(episodes)
+        Frames.add_cumulative_views!(episodes)
+        Frames.add_view_diff!(episodes)
+        Frames.add_chapters!(episodes)
+        Frames.add_chapter_length!(episodes)
+        @test nrow(episodes) == 0
 
         data = Load.load(FIXTURES, 2)
         @test nrow(data.episodes) == 0
