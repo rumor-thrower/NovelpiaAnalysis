@@ -128,24 +128,18 @@ gets empty columns.
 """
 function add_chapters!(df; base_fn = chapter_base)
     sort!(df, :episode_no)
-    n = nrow(df)
-    chapter_no = Vector{Int}(undef, n)
-    chapter_title = Vector{Union{Missing,String}}(undef, n)
-    prev_base = nothing
-    current = 0
-    for i = 1:n
-        base = base_fn(df.title[i])
-        # A new run starts on the first row, on any change of base title, and around
-        # every `missing` (which is never equal to anything, itself included).
-        if i == 1 || ismissing(base) || ismissing(prev_base) || base != prev_base
-            current += 1
-        end
-        chapter_no[i] = current
-        chapter_title[i] = base
-        prev_base = base
-    end
-    df.chapter_no = chapter_no
-    df.chapter_title = chapter_title
+    # Compute every base title up front: this vectorizes the (regex-bearing) `base_fn`
+    # work and, since `chapter_title` is exactly these bases, lets it be assigned
+    # directly without a scratch vector.
+    bases = base_fn.(df.title)
+    # A new chapter run starts on the first row, on any change of base title, and
+    # around every `missing` (never equal to anything, itself included); the 1-based
+    # `chapter_no` is then the running count of those run-starts — a cumulative sum,
+    # which is the only inherently sequential part (each row depends on the previous).
+    starts_run(i) =
+        i == 1 || ismissing(bases[i]) || ismissing(bases[i-1]) || bases[i] != bases[i-1]
+    df.chapter_no = cumsum(starts_run.(eachindex(bases)))
+    df.chapter_title = convert(Vector{Union{Missing,String}}, bases)
     df
 end
 
