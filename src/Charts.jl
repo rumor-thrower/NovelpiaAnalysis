@@ -74,6 +74,16 @@ function barchart(
     W = isnothing(width) ? 80 + (bw + gap) * n : width
     step = bw + gap
 
+    rotated_label(cx, label) = (
+        "  <text x=\"$cx\" y=\"$(H-38)\" text-anchor=\"end\" ",
+        "dominant-baseline=\"middle\" font-size=\"11\" ",
+        "transform=\"rotate(-45 $cx $(H-38))\">$label</text>\n",
+    )
+    horizontal_label(cx, label) = (
+        "  <text x=\"$cx\" y=\"$(H-32)\" text-anchor=\"middle\" ",
+        "font-size=\"12\">$label</text>\n",
+    )
+
     rects = IOBuffer()
     for (i, v) in enumerate(vals)
         h = ismissing(v) ? 0 : round(Int, abs(v) / span * bar_h)
@@ -88,20 +98,10 @@ function barchart(
             "  <rect x=\"$x\" y=\"$bar_top\" width=\"$(bw-3)\" height=\"$h\" ",
             "fill=\"$(color_at(i))\" rx=\"2\"/>\n",
         )
-        if rotate_labels
-            print(
-                rects,
-                "  <text x=\"$cx\" y=\"$(H-38)\" text-anchor=\"end\" ",
-                "dominant-baseline=\"middle\" font-size=\"11\" ",
-                "transform=\"rotate(-45 $cx $(H-38))\">$label</text>\n",
-            )
-        else
-            print(
-                rects,
-                "  <text x=\"$cx\" y=\"$(H-32)\" text-anchor=\"middle\" ",
-                "font-size=\"12\">$label</text>\n",
-            )
-        end
+        print(
+            rects,
+            (rotate_labels ? rotated_label(cx, label) : horizontal_label(cx, label))...,
+        )
         if !ismissing(v)
             vw = bold_values ? " font-weight=\"bold\"" : ""
             value_y = v >= 0 ? bar_top - 4 : bar_top + h + 12
