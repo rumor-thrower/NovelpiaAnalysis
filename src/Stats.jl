@@ -33,8 +33,8 @@ function _view_aggregates(episodes, views)
         max_views = missing,
         first_last_retention = missing,
     )
-    first_view = episodes.count_view[1]
-    last_view = episodes.count_view[end]
+    first_view = first(episodes.count_view)
+    last_view = last(episodes.count_view)
     retention =
         (ismissing(first_view) || ismissing(last_view) || iszero(first_view)) ? missing :
         last_view / first_view
