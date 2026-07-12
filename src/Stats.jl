@@ -101,10 +101,10 @@ function _ols_slope(x, y)
     xs = Float64.(disallowmissing(x[keep]))
     ys = Float64.(disallowmissing(y[keep]))
     length(xs) < 2 && return missing
-    xbar = mean(xs)
-    ybar = mean(ys)
-    denom = sum((xs .- xbar) .^ 2)
-    iszero(denom) ? missing : sum((xs .- xbar) .* (ys .- ybar)) / denom
+    # cov/var share the same 1/(n-1) correction, which cancels in the ratio, so
+    # this is the plain normal-equation slope Σ(x-x̄)(y-ȳ) / Σ(x-x̄)².
+    denom = var(xs)
+    iszero(denom) ? missing : cov(xs, ys) / denom
 end
 
 """
