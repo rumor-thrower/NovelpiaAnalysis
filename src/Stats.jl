@@ -12,7 +12,8 @@ export summary,
     chapter_decline_slopes,
     chapter_length_decline_correlation,
     spearman_cor,
-    chapter_length_decline_leverage
+    chapter_length_decline_leverage,
+    usable_chapters
 
 """
     _view_aggregates(episodes, views) -> NamedTuple
@@ -128,11 +129,11 @@ function chapter_decline_slopes(df)
 end
 
 """
-    _usable_chapters(chapters) -> DataFrame
+    usable_chapters(chapters) -> DataFrame
 
 Chapters whose `slope` is defined — the subset the correlations are scored over.
 """
-_usable_chapters(chapters) = subset(chapters, :slope => ByRow(!ismissing))
+usable_chapters(chapters) = subset(chapters, :slope => ByRow(!ismissing))
 
 """
     _correlation_undefined(chapters) -> Bool
@@ -158,7 +159,7 @@ A negative correlation supports the hypothesis that longer chapters
 """
 function chapter_length_decline_correlation(df)
     chapters = chapter_decline_slopes(df)
-    usable = _usable_chapters(chapters)
+    usable = usable_chapters(chapters)
     pearson =
         _correlation_undefined(usable) ? missing : cor(usable.chapter_length, usable.slope)
     (pearson, chapters)
@@ -214,7 +215,7 @@ function chapter_length_decline_leverage(
     long_chapter_cutoff,
     drop_long_chapters = false,
 )
-    usable = _usable_chapters(chapters)
+    usable = usable_chapters(chapters)
     is_long = usable.chapter_length .> long_chapter_cutoff
     scored_rows = drop_long_chapters ? .!is_long : Colon()
     scored = view(usable, scored_rows, :)
