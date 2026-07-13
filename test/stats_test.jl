@@ -184,7 +184,7 @@ end
     @test dropped.spearman ≈ -1.0
 
     # Fewer than two scored chapters -> missing, not an error.
-    one = subset(chapters, :chapter_length => l -> l .== 2)
+    one = subset(chapters, :chapter_length => ByRow(==(2)))
     lev = Stats.chapter_length_decline_leverage(one; long_chapter_cutoff = 5)
     @test ismissing(lev.pearson)
     @test ismissing(lev.spearman)
