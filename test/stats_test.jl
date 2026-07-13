@@ -72,6 +72,8 @@ end
     Frames.add_chapter_length!(df)
     @test df.chapter_length == [2, 2, 3, 3, 3, 4, 4, 4, 4]
 
+    chapter_length_decline_correlation = Stats.chapter_length_decline_correlation
+
     chapters = Stats.chapter_decline_slopes(df)
     @test nrow(chapters) == 3
     @test sort(chapters.chapter_length) == [2, 3, 4]
@@ -80,7 +82,7 @@ end
     @test by_length[3] ≈ -20
     @test by_length[4] ≈ -30
 
-    corr = Stats.chapter_length_decline_correlation(df)
+    corr = chapter_length_decline_correlation(df)
     @test corr.chapters == chapters
     @test corr.pearson ≈ -1.0  # longer chapters decline strictly faster here
 
@@ -90,7 +92,7 @@ end
     Frames.add_chapter_length!(single)
     single_chapters = Stats.chapter_decline_slopes(single)
     @test ismissing(only(single_chapters.slope))
-    @test ismissing(Stats.chapter_length_decline_correlation(single).pearson)
+    @test ismissing(chapter_length_decline_correlation(single).pearson)
 
     # A constant slope across chapters of varying length has zero variance,
     # so the correlation is undefined: `missing`, not `cor`'s NaN.
@@ -101,7 +103,7 @@ end
         count_view = [100, 90, 50, 40, 30],
     )
     Frames.add_chapter_length!(flat)
-    @test ismissing(Stats.chapter_length_decline_correlation(flat).pearson)
+    @test ismissing(chapter_length_decline_correlation(flat).pearson)
     flat_lev = Stats.chapter_length_decline_leverage(
         Stats.chapter_decline_slopes(flat);
         long_chapter_cutoff = 5,
@@ -112,24 +114,25 @@ end
 end
 
 @testset "Stats.spearman_cor" begin
+    spearman_cor = Stats.spearman_cor
     # Perfectly monotone (but nonlinear) x/y -> Spearman is exactly ±1 while
     # Pearson is not, which is the whole point of the rank correlation.
     x = [1, 2, 3, 4, 5]
     y = [1, 4, 9, 16, 25]  # strictly increasing, convex
-    @test Stats.spearman_cor(x, y) ≈ 1.0
-    @test Stats.spearman_cor(x, reverse(y)) ≈ -1.0
+    @test spearman_cor(x, y) ≈ 1.0
+    @test spearman_cor(x, reverse(y)) ≈ -1.0
     # Robustness: an extreme x-outlier that preserves the rank order leaves
     # Spearman at exactly 1.0, where Pearson would be dragged toward it.
     xo = [1, 2, 3, 4, 100]
     yo = [1, 2, 3, 4, 5]
-    @test Stats.spearman_cor(xo, yo) ≈ 1.0
+    @test spearman_cor(xo, yo) ≈ 1.0
     # Too few pairs for a correlation to vary: `cor` would throw on the empty
     # sample and return NaN on the single pair, so both report `missing`.
-    @test ismissing(Stats.spearman_cor(Int[], Int[]))
-    @test ismissing(Stats.spearman_cor([1], [1]))
+    @test ismissing(spearman_cor(Int[], Int[]))
+    @test ismissing(spearman_cor([1], [1]))
     # Two pairs are enough, even all-tied ones: ranking breaks ties by
     # position, so the ranks vary and the correlation is defined.
-    @test Stats.spearman_cor([7, 7], [7, 7]) ≈ 1.0
+    @test spearman_cor([7, 7], [7, 7]) ≈ 1.0
 end
 
 @testset "Stats.chapter_length_decline_leverage" begin
