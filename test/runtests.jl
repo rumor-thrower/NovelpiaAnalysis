@@ -79,16 +79,17 @@ const NOVEL_NO = 127306
     @testset "Frames.add_chapters!" begin
         # chapter_base strips trailing part markers (ASCII/full-width parens, `- N`,
         # `#N`, and spacing variants) but keeps leading chapter numbering and bare titles.
-        @test Frames.chapter_base("각성(1)") == "각성"
-        @test Frames.chapter_base("각성 (3)") == "각성"
-        @test Frames.chapter_base("각성（2）") == "각성"
-        @test Frames.chapter_base("수련 - 2") == "수련"
-        @test Frames.chapter_base("수련 -3") == "수련"
-        @test Frames.chapter_base("결전 #1") == "결전"
-        @test Frames.chapter_base("여담") == "여담"
-        @test Frames.chapter_base("3. 다시 몬드(1)") == "3. 다시 몬드"  # leading number kept
-        @test Frames.chapter_base("#04_보더 타운(3)") == "#04_보더 타운"
-        @test ismissing(Frames.chapter_base(missing))
+        chapter_base = Frames.chapter_base
+        @test chapter_base("각성(1)") == "각성"
+        @test chapter_base("각성 (3)") == "각성"
+        @test chapter_base("각성（2）") == "각성"
+        @test chapter_base("수련 - 2") == "수련"
+        @test chapter_base("수련 -3") == "수련"
+        @test chapter_base("결전 #1") == "결전"
+        @test chapter_base("여담") == "여담"
+        @test chapter_base("3. 다시 몬드(1)") == "3. 다시 몬드"  # leading number kept
+        @test chapter_base("#04_보더 타운(3)") == "#04_보더 타운"
+        @test ismissing(chapter_base(missing))
 
         episodes = Load.read_episodes(FIXTURES, 777)
         Frames.add_chapters!(episodes)
@@ -120,16 +121,17 @@ const NOVEL_NO = 127306
         # Strips a leading global episode serial ("012. ") before delegating to
         # chapter_base, so same-chapter episodes numbered per-episode (not
         # per-chapter) collapse to the same base.
-        @test Frames.chapter_base_no_serial("012. 뱀파이어 형사") == "뱀파이어 형사"
-        @test Frames.chapter_base_no_serial("013. 뱀파이어 형사") == "뱀파이어 형사"
-        @test Frames.chapter_base_no_serial("001. 능력 각성") == "능력 각성"
+        base_no_serial = Frames.chapter_base_no_serial
+        @test base_no_serial("012. 뱀파이어 형사") == "뱀파이어 형사"
+        @test base_no_serial("013. 뱀파이어 형사") == "뱀파이어 형사"
+        @test base_no_serial("001. 능력 각성") == "능력 각성"
         # Still strips trailing part markers same as chapter_base.
-        @test Frames.chapter_base_no_serial("012. 각성(1)") == "각성"
+        @test base_no_serial("012. 각성(1)") == "각성"
         # A bare chapter-numbering prefix (no global serial) is also consumed —
         # this is the intended behavioural difference from chapter_base, which
         # keeps it. Callers pick whichever base_fn matches their novel's titling.
-        @test Frames.chapter_base_no_serial("3. 다시 몬드(1)") == "다시 몬드"
-        @test ismissing(Frames.chapter_base_no_serial(missing))
+        @test base_no_serial("3. 다시 몬드(1)") == "다시 몬드"
+        @test ismissing(base_no_serial(missing))
 
         # Regression: a novel titled with a leading global episode serial (e.g.
         # "012. 뱀파이어 형사", "013. 뱀파이어 형사" — the number increments every
@@ -192,16 +194,18 @@ const NOVEL_NO = 127306
             DataFrame(count_view = Union{Int,Missing}[vs...], is_free = collect(free)),
         )
 
-        for empty_case in
-            (views_summary(()), views_summary((missing, missing), (true, false)))
+        no_episodes = views_summary(())
+        all_missing_views = views_summary((missing, missing), (true, false))
+
+        for empty_case in (no_episodes, all_missing_views)
             @test ismissing(empty_case.total_views)
             @test ismissing(empty_case.median_views)
             @test ismissing(empty_case.max_views)
             @test ismissing(empty_case.first_last_retention)
         end
-        @test iszero(views_summary(()).episode_count)
-        @test views_summary((missing, missing), (true, false)).episode_count == 2
-        @test isone(views_summary((missing, missing), (true, false)).paid_count)
+        @test iszero(no_episodes.episode_count)
+        @test all_missing_views.episode_count == 2
+        @test isone(all_missing_views.paid_count)
 
         # Retention alone is undefined when an endpoint is `missing` or the first
         # view is zero; the aggregates over the surviving views stay well-defined.
@@ -214,24 +218,18 @@ const NOVEL_NO = 127306
         @test missing_first.total_views == 50
         @test missing_first.max_views == 50
 
-        ratio, matched, total = Stats.conditional_ratio(episodes, :is_free => identity)
-        @test isone(ratio)
-        @test nrow(matched) == 2
-        @test total == 2
-
         # A zero ratio is ambiguous on its own: `total` is what separates "no rows
         # to match" (undefined) from "rows existed, none matched" (a real zero).
-        empty_df = DataFrame(is_free = Bool[])
-        ratio0, matched0, total0 = Stats.conditional_ratio(empty_df, :is_free => identity)
-        @test iszero(ratio0)
-        @test isempty(matched0)
-        @test iszero(total0)
-
-        none_match = DataFrame(is_free = [false, false, false])
-        ration, matchedn, totaln = Stats.conditional_ratio(none_match, :is_free => identity)
-        @test iszero(ration)
-        @test isempty(matchedn)
-        @test totaln == 3
+        for (df, expected_ratio, expected_matched, expected_total) in (
+            (episodes, 1, 2, 2),
+            (DataFrame(is_free = Bool[]), 0, 0, 0),
+            (DataFrame(is_free = [false, false, false]), 0, 0, 3),
+        )
+            ratio, matched, total = Stats.conditional_ratio(df, :is_free => identity)
+            @test ratio == expected_ratio
+            @test nrow(matched) == expected_matched
+            @test total == expected_total
+        end
     end
 
     @testset "Stats.chapter_decline_slopes / chapter_length_decline_correlation" begin
@@ -388,15 +386,17 @@ const NOVEL_NO = 127306
         ys = [parse(Int, r[2]) for r in rects]
         @test ys[2] < ys[1] == ys[3]
 
+        color_a, color_b = "#4e79a7", "#f28e2b"
         legend_html = Charts.barchart(
             ["a", "b"],
             [1, 2];
-            colors = ["#4e79a7", "#f28e2b"],
-            legend = [("A", "#4e79a7"), ("B", "#f28e2b")],
+            colors = [color_a, color_b],
+            legend = [("A", color_a), ("B", color_b)],
         )
-        @test occursin("translate(", legend_html.content)
-        @test occursin(">A</text>", legend_html.content)
-        @test occursin(">B</text>", legend_html.content)
+        in_legend = occursin(legend_html.content)
+        @test in_legend("translate(")
+        @test in_legend(">A</text>")
+        @test in_legend(">B</text>")
     end
 
     @testset "Charts x-axis label containment" begin
@@ -457,55 +457,52 @@ const NOVEL_NO = 127306
                 (px, py) in corners(l)
             )
         end
+        bc(args...; kwargs...) = Charts.barchart(args...; kwargs...).content
+        contained_barchart(args...; kwargs...) = contained(bc(args...; kwargs...))
 
         group = ["완결\n중앙값", "완결\n기하평균", "연재\n중앙값", "연재\n기하평균"]
         long_tag = ["현대판타지 로맨스 대하소설\n(n=1234)", "회귀\n(n=88)", "TS\n(n=9)"]
         gvals = [1200.0, 800.0, 950.0, 600.0]
 
         # The two shapes that actually broke: multi-line CJK labels, rotated.
-        @test contained(Charts.barchart(group, gvals; rotate_labels = true).content)
-        @test contained(
-            Charts.barchart(
-                long_tag,
-                [3.1, 2.0, 1.4];
-                rotate_labels = true,
-                bold_values = true,
-            ).content,
+        @test contained_barchart(group, gvals; rotate_labels = true)
+        @test contained_barchart(
+            long_tag,
+            [3.1, 2.0, 1.4];
+            rotate_labels = true,
+            bold_values = true,
         )
         # …and the shapes that already worked, which must keep working.
-        @test contained(
-            Charts.barchart(string.(1:12), float.(1:12); rotate_labels = true).content,
-        )
-        @test contained(Charts.barchart(group, gvals).content)
-        @test contained(Charts.barchart(["a", "b"], [1.0, 2.0]).content)
-        @test contained(
-            Charts.barchart(["x\ny", "z"], [-5.0, missing]; rotate_labels = true).content,
-        )
-        @test contained(
-            Charts.barchart(
-                ["긴이름하나", "b"],
-                [1.0, 2.0];
-                width = 400,
-                legend = [("중앙값", "#111")],
-            ).content,
+        @test contained_barchart(string.(1:12), float.(1:12); rotate_labels = true)
+        @test contained_barchart(group, gvals)
+        @test contained_barchart(["a", "b"], [1.0, 2.0])
+        @test contained_barchart(["x\ny", "z"], [-5.0, missing]; rotate_labels = true)
+        @test contained_barchart(
+            ["긴이름하나", "b"],
+            [1.0, 2.0];
+            width = 400,
+            legend = [("중앙값", "#111")],
         )
 
         # A rotated chart reserves room below `height` and left of the bars,
         # rather than drawing labels over the bars or off-canvas.
-        plain = Charts.barchart(long_tag, [3.1, 2.0, 1.4]; height = 280).content
-        rot =
-            Charts.barchart(long_tag, [3.1, 2.0, 1.4]; height = 280, rotate_labels = true).content
+        long_tag_at_280(; kwargs...) =
+            bc(long_tag, [3.1, 2.0, 1.4]; height = 280, kwargs...)
+        plain = long_tag_at_280()
+        rot = long_tag_at_280(; rotate_labels = true)
         @test last(viewport(rot)) > last(viewport(plain)) > 280
         @test first(viewport(rot)) > first(viewport(plain))
 
+        single_bar(label) = bc([label], [1.0])
+
         # `\n` becomes stacked <tspan> lines, not a literal newline in one run.
-        two_line = Charts.barchart(["완결\n중앙값"], [1.0]).content
+        two_line = single_bar("완결\n중앙값")
         @test occursin(">완결</tspan>", two_line)
         @test occursin(">중앙값</tspan>", two_line)
         @test !occursin("완결\n중앙값", two_line)
 
         # Each line is escaped exactly once (the bar loop no longer pre-escapes).
-        esc = Charts.barchart(["a & b<c"], [1.0]).content
+        esc = single_bar("a & b<c")
         @test occursin(">a &amp; b&lt;c</tspan>", esc)
         @test !occursin("&amp;amp;", esc)
     end
