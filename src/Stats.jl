@@ -139,10 +139,14 @@ usable_chapters(chapters) = subset(chapters, :slope => ByRow(!ismissing))
     _correlation_undefined(chapters) -> Bool
 
 Whether a length-vs-slope correlation is undefined over `chapters`: fewer than two
-chapters to correlate, or a constant `chapter_length` (zero variance).
+chapters to correlate, or zero variance in `chapter_length` or `slope` (either
+constant makes Pearson's denominator zero, so `cor` would return `NaN` rather
+than a correlation).
 """
 _correlation_undefined(chapters) =
-    nrow(chapters) < 2 || iszero(var(chapters.chapter_length))
+    nrow(chapters) < 2 ||
+    iszero(var(chapters.chapter_length)) ||
+    iszero(var(chapters.slope))
 
 """
     chapter_length_decline_correlation(df) -> Tuple{Union{Missing, Float64}, DataFrame}
@@ -152,7 +156,7 @@ within-chapter view-decline `slope` across chapters (see
 [`chapter_decline_slopes`](@ref)), alongside the per-chapter DataFrame used to
 compute it. Chapters with a `missing` slope are excluded first. `missing` is
 returned instead of a correlation if fewer than two chapters remain, or if
-`chapter_length` is constant across all remaining chapters.
+`chapter_length` or `slope` is constant across all remaining chapters.
 
 A negative correlation supports the hypothesis that longer chapters
 (episode 장편화) accelerate view-count decline.
@@ -208,7 +212,9 @@ chapters at or below the cutoff; otherwise over the full `usable` set.
 
 Returns `(; pearson, spearman, usable_n, long_n, scored_n)`. `pearson` and
 `spearman` are `missing` when fewer than two chapters are scored or their
-`chapter_length` is constant (undefined correlation).
+`chapter_length` or `slope` is constant (undefined correlation — a rank
+correlation over a constant `slope` would only echo the positional
+tie-breaking of [`spearman_cor`](@ref), not a real trend).
 """
 function chapter_length_decline_leverage(
     chapters;
