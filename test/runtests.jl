@@ -266,6 +266,25 @@ const NOVEL_NO = 127306
         @test ismissing(only(single_chapters.slope))
         cor_missing, _ = Stats.chapter_length_decline_correlation(single)
         @test ismissing(cor_missing)
+
+        # A constant slope across chapters of varying length has zero variance,
+        # so the correlation is undefined: `missing`, not `cor`'s NaN.
+        # ch1 (length 2): 100 -> 90, ch2 (length 3): 50 -> 40 -> 30 (both slope -10)
+        flat = DataFrame(
+            episode_no = 1:5,
+            chapter_no = [1, 1, 2, 2, 2],
+            count_view = [100, 90, 50, 40, 30],
+        )
+        Frames.add_chapter_length!(flat)
+        cor_flat, _ = Stats.chapter_length_decline_correlation(flat)
+        @test ismissing(cor_flat)
+        flat_lev = Stats.chapter_length_decline_leverage(
+            Stats.chapter_decline_slopes(flat);
+            long_chapter_cutoff = 5,
+        )
+        @test ismissing(flat_lev.pearson)
+        @test ismissing(flat_lev.spearman)
+        @test flat_lev.scored_n == 2
     end
 
     @testset "Stats.spearman_cor" begin
