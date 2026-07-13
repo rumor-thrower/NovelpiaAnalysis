@@ -128,6 +128,22 @@ function chapter_decline_slopes(df)
 end
 
 """
+    _usable_chapters(chapters) -> DataFrame
+
+Chapters whose `slope` is defined — the subset the correlations are scored over.
+"""
+_usable_chapters(chapters) = subset(chapters, :slope => ByRow(!ismissing))
+
+"""
+    _correlation_undefined(chapters) -> Bool
+
+Whether a length-vs-slope correlation is undefined over `chapters`: fewer than two
+chapters to correlate, or a constant `chapter_length` (zero variance).
+"""
+_correlation_undefined(chapters) =
+    nrow(chapters) < 2 || iszero(var(chapters.chapter_length))
+
+"""
     chapter_length_decline_correlation(df) -> Tuple{Union{Missing, Float64}, DataFrame}
 
 Pearson correlation (via `Statistics.cor`) between `chapter_length` and the
@@ -142,11 +158,10 @@ A negative correlation supports the hypothesis that longer chapters
 """
 function chapter_length_decline_correlation(df)
     chapters = chapter_decline_slopes(df)
-    usable = subset(chapters, :slope => x -> .!ismissing.(x))
-    correlation =
-        (nrow(usable) < 2 || iszero(var(usable.chapter_length))) ? missing :
-        cor(float.(usable.chapter_length), float.(usable.slope))
-    (correlation, chapters)
+    usable = _usable_chapters(chapters)
+    pearson =
+        _correlation_undefined(usable) ? missing : cor(usable.chapter_length, usable.slope)
+    (pearson, chapters)
 end
 
 """
@@ -171,7 +186,7 @@ permutation of `1:n`, never a constant vector.
 function spearman_cor(x, y)
     rank(v) = sortperm(sortperm(collect(v)))
     length(x) < 2 && return missing
-    cor(float.(rank(x)), float.(rank(y)))
+    cor(rank(x), rank(y))
 end
 
 """
@@ -199,19 +214,16 @@ function chapter_length_decline_leverage(
     long_chapter_cutoff,
     drop_long_chapters = false,
 )
-    usable = subset(chapters, :slope => x -> .!ismissing.(x))
-    long = subset(usable, :chapter_length => l -> l .> long_chapter_cutoff)
-    scored =
-        drop_long_chapters ?
-        subset(usable, :chapter_length => l -> l .<= long_chapter_cutoff) : usable
-    undefined = nrow(scored) < 2 || iszero(var(scored.chapter_length))
-    pearson = undefined ? missing : cor(float.(scored.chapter_length), float.(scored.slope))
-    spearman = undefined ? missing : spearman_cor(scored.chapter_length, scored.slope)
+    usable = _usable_chapters(chapters)
+    is_long = usable.chapter_length .> long_chapter_cutoff
+    scored_rows = drop_long_chapters ? .!is_long : Colon()
+    scored = view(usable, scored_rows, :)
+    undefined = _correlation_undefined(scored)
     (
-        pearson = pearson,
-        spearman = spearman,
+        pearson = undefined ? missing : cor(scored.chapter_length, scored.slope),
+        spearman = undefined ? missing : spearman_cor(scored.chapter_length, scored.slope),
         usable_n = nrow(usable),
-        long_n = nrow(long),
+        long_n = count(is_long),
         scored_n = nrow(scored),
     )
 end
