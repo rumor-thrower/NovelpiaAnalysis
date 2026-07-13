@@ -36,7 +36,6 @@ end
     # 6 chapters: 프롤로그 | 각성(×3) | 수련(×3) | 결전(×2) | 여담(×2 bare repeat) |
     # 각성 again (reappearing base is a NEW chapter, not merged with the first).
     @test episodes.chapter_no == [1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6]
-    @test maximum(episodes.chapter_no) == 6
     @test unique(episodes.chapter_title[episodes.chapter_no .== 2]) == ["각성"]
     @test episodes.chapter_title[end] == "각성"          # ch6 base equals ch2 base
     @test episodes.chapter_no[end] == 6                  # but is a distinct chapter
