@@ -102,7 +102,6 @@ const NOVEL_NO = 127306
         @test episodes.chapter_no[end] == 6                  # but is a distinct chapter
         # chapter_no is constant within a chapter and strictly increases across them.
         @test issorted(episodes.chapter_no)
-        @test allunique(unique(episodes.chapter_no))
 
         # A missing title never merges with either neighbour.
         m = DataFrame(episode_no = 1:3, title = ["A", missing, "A"])
