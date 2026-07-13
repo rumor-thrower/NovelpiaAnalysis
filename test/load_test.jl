@@ -1,7 +1,10 @@
+const FIXTURE_EPISODE_COUNT = 2
+const DELETED_NOVEL_NO = 2
+
 @testset "Load" begin
     manifest = Load.read_manifest(FIXTURES, NOVEL_NO)
     @test manifest.novel_no == NOVEL_NO
-    @test manifest.episode_count == 2
+    @test manifest.episode_count == FIXTURE_EPISODE_COUNT
     @test iszero(manifest.review_count)
     @test manifest.files == ["episodes.csv", "reviews.csv"]
 
@@ -17,7 +20,8 @@
 
     data = Load.load(FIXTURES, NOVEL_NO)
     @test data.manifest.novel_no == NOVEL_NO
-    @test nrow(data.episodes) == 2
+    @test data.manifest.episode_count == FIXTURE_EPISODE_COUNT
+    @test nrow(data.episodes) == data.manifest.episode_count
     @test isempty(data.reviews)
 end
 
@@ -27,10 +31,10 @@ end
     # normalizes this to the same typed-but-empty schema as a populated
     # file, so downstream Frames functions (sort! on :episode_no etc.)
     # don't need to special-case a columnless frame.
-    manifest = Load.read_manifest(FIXTURES, 2)
+    manifest = Load.read_manifest(FIXTURES, DELETED_NOVEL_NO)
     @test iszero(manifest.episode_count)
 
-    episodes = Load.read_episodes(FIXTURES, 2)
+    episodes = Load.read_episodes(FIXTURES, DELETED_NOVEL_NO)
     @test isempty(episodes)
     @test Set(names(episodes)) ==
           Set(["count_view", "episode_no", "is_adult", "is_free", "reg_date", "title"])
@@ -44,7 +48,7 @@ end
     Frames.add_chapter_length!(episodes)
     @test isempty(episodes)
 
-    data = Load.load(FIXTURES, 2)
+    data = Load.load(FIXTURES, DELETED_NOVEL_NO)
     @test isempty(data.episodes)
     @test isempty(data.reviews)
 end

@@ -32,14 +32,16 @@
 
     # Retention alone is undefined when an endpoint is `missing` or the first
     # view is zero; the aggregates over the surviving views stay well-defined.
-    zero_first = views_summary((0, 50))
-    @test ismissing(zero_first.first_last_retention)
-    @test zero_first.total_views == 50
+    last_views = 50
 
-    missing_first = views_summary((missing, 50))
+    zero_first = views_summary((0, last_views))
+    @test ismissing(zero_first.first_last_retention)
+    @test zero_first.total_views == last_views
+
+    missing_first = views_summary((missing, last_views))
     @test ismissing(missing_first.first_last_retention)
-    @test missing_first.total_views == 50
-    @test missing_first.max_views == 50
+    @test missing_first.total_views == last_views
+    @test missing_first.max_views == last_views
 
     # A zero ratio is ambiguous on its own: `total` is what separates "no rows
     # to match" (undefined) from "rows existed, none matched" (a real zero).
