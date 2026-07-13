@@ -18,7 +18,7 @@ const NOVEL_NO = 127306
         @test nrow(episodes) == manifest.episode_count
         @test eltype(episodes.episode_no) == Int
         @test eltype(episodes.is_free) == Bool
-        @test episodes.reg_date[1] == Date(2023, 3, 23)
+        @test first(episodes.reg_date) == Date(2023, 3, 23)
         @test episodes.count_view == [356, 110]
 
         reviews = Load.read_reviews(FIXTURES, NOVEL_NO)
@@ -61,14 +61,14 @@ const NOVEL_NO = 127306
     @testset "Frames" begin
         episodes = Load.read_episodes(FIXTURES, NOVEL_NO)
         Frames.add_retention!(episodes)
-        @test episodes.retention == episodes.count_view ./ episodes.count_view[1]
-        @test episodes.retention[1] == 1.0
+        @test episodes.retention == episodes.count_view ./ first(episodes.count_view)
+        @test isone(first(episodes.retention))
 
         Frames.add_cumulative_views!(episodes)
         @test episodes.cumulative_views == cumsum(episodes.count_view)
 
         Frames.add_view_diff!(episodes)
-        @test ismissing(episodes.view_diff[1])
+        @test ismissing(first(episodes.view_diff))
         @test episodes.view_diff[2:end] == diff(episodes.count_view)
 
         rising = Frames.rising_episodes(episodes)
@@ -201,7 +201,7 @@ const NOVEL_NO = 127306
         end
         @test iszero(views_summary(()).episode_count)
         @test views_summary((missing, missing), (true, false)).episode_count == 2
-        @test views_summary((missing, missing), (true, false)).paid_count == 1
+        @test isone(views_summary((missing, missing), (true, false)).paid_count)
 
         # Retention alone is undefined when an endpoint is `missing` or the first
         # view is zero; the aggregates over the surviving views stay well-defined.
@@ -215,7 +215,7 @@ const NOVEL_NO = 127306
         @test missing_first.max_views == 50
 
         ratio, matched, total = Stats.conditional_ratio(episodes, :is_free => identity)
-        @test ratio == 1.0
+        @test isone(ratio)
         @test nrow(matched) == 2
         @test total == 2
 
@@ -324,7 +324,7 @@ const NOVEL_NO = 127306
         # Default: all 4 usable chapters scored; one is "long" (> cutoff 5).
         full = Stats.chapter_length_decline_leverage(chapters; long_chapter_cutoff = 5)
         @test full.usable_n == 4
-        @test full.long_n == 1
+        @test isone(full.long_n)
         @test full.scored_n == 4
         # The long, positively-sloped chapter pulls the correlation off -1.0.
         @test full.pearson > -1.0
@@ -336,7 +336,7 @@ const NOVEL_NO = 127306
             drop_long_chapters = true,
         )
         @test dropped.scored_n == 3
-        @test dropped.long_n == 1
+        @test isone(dropped.long_n)
         @test dropped.pearson ≈ -1.0
         @test dropped.spearman ≈ -1.0
 
@@ -345,7 +345,7 @@ const NOVEL_NO = 127306
         lev = Stats.chapter_length_decline_leverage(one; long_chapter_cutoff = 5)
         @test ismissing(lev.pearson)
         @test ismissing(lev.spearman)
-        @test lev.scored_n == 1
+        @test isone(lev.scored_n)
     end
 
     @testset "Charts" begin
