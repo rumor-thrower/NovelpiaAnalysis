@@ -224,7 +224,7 @@ const NOVEL_NO = 127306
             (DataFrame(is_free = Bool[]), 0, 0, 0),
             (DataFrame(is_free = [false, false, false]), 0, 0, 3),
         )
-            ratio, matched, total = Stats.conditional_ratio(df, :is_free => identity)
+            (; ratio, matched, total) = Stats.conditional_ratio(df, :is_free => identity)
             @test ratio == expected_ratio
             @test nrow(matched) == expected_matched
             @test total == expected_total
@@ -254,9 +254,9 @@ const NOVEL_NO = 127306
         @test by_length[3] ≈ -20
         @test by_length[4] ≈ -30
 
-        cor_val, chapters2 = Stats.chapter_length_decline_correlation(df)
-        @test chapters2 == chapters
-        @test cor_val ≈ -1.0  # longer chapters decline strictly faster here
+        corr = Stats.chapter_length_decline_correlation(df)
+        @test corr.chapters == chapters
+        @test corr.pearson ≈ -1.0  # longer chapters decline strictly faster here
 
         # A single-episode chapter yields a missing slope and is excluded from
         # the correlation, rather than erroring.
@@ -264,8 +264,7 @@ const NOVEL_NO = 127306
         Frames.add_chapter_length!(single)
         single_chapters = Stats.chapter_decline_slopes(single)
         @test ismissing(only(single_chapters.slope))
-        cor_missing, _ = Stats.chapter_length_decline_correlation(single)
-        @test ismissing(cor_missing)
+        @test ismissing(Stats.chapter_length_decline_correlation(single).pearson)
 
         # A constant slope across chapters of varying length has zero variance,
         # so the correlation is undefined: `missing`, not `cor`'s NaN.
@@ -276,8 +275,7 @@ const NOVEL_NO = 127306
             count_view = [100, 90, 50, 40, 30],
         )
         Frames.add_chapter_length!(flat)
-        cor_flat, _ = Stats.chapter_length_decline_correlation(flat)
-        @test ismissing(cor_flat)
+        @test ismissing(Stats.chapter_length_decline_correlation(flat).pearson)
         flat_lev = Stats.chapter_length_decline_leverage(
             Stats.chapter_decline_slopes(flat);
             long_chapter_cutoff = 5,
