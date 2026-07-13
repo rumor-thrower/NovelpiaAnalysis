@@ -21,18 +21,21 @@
         )
     ]
 
-    neg_html = Charts.barchart(["a", "b"], [-1.0, -2.0])
-    for (x, y, w, h) in _rect_attrs(neg_html.content)
-        @test parse(Int, w) > 0
-        @test parse(Int, h) >= 0
+    # Every rect must have positive width and non-negative height.
+    function valid_rects(html, n)
+        rects = _rect_attrs(html.content)
+        @test length(rects) == n
+        for (_, _, w, h) in rects
+            @test parse(Int, w) > 0
+            @test parse(Int, h) >= 0
+        end
+        rects
     end
 
+    valid_rects(Charts.barchart(["a", "b"], [-1.0, -2.0]), 2)
+
     mixed_html = Charts.barchart(["a", "b", "c"], [-10.0, 20.0, -5.0])
-    rects = _rect_attrs(mixed_html.content)
-    @test length(rects) == 3
-    for (x, y, w, h) in rects
-        @test parse(Int, h) >= 0
-    end
+    rects = valid_rects(mixed_html, 3)
     # The positive bar's rect must extend strictly above the baseline shared
     # by the two negative bars' (equal) top y-coordinates.
     ys = [parse(Int, r[2]) for r in rects]
@@ -61,7 +64,6 @@ end
 
     # Widths come from the renderer's own em model. What's under test is the
     # padding arithmetic around it, which `corners` re-derives from the SVG.
-    widest = Charts._line_px
 
     # Every x-axis <text>: anchor, rotation, and its stacked tspan lines.
     function axis_labels(svg)
@@ -73,7 +75,7 @@ end
                 y = parse(Int, m[2]),
                 anchor = m[3],
                 fs = parse(Int, m[4]),
-                rotated = m[5] !== nothing,
+                rotated = !isnothing(m[5]),
                 lines = [t[1] for t in eachmatch(r"<tspan[^>]*>(.*?)</tspan>", m[6])],
             ) for m in eachmatch(re, svg)
         ]
@@ -81,16 +83,23 @@ end
 
     # Corners of a label's text block in user space, after any rotation.
     function corners(l)
-        w = widest(join(l.lines, '\n'), l.fs)
-        x1 = l.anchor == "end" ? l.x - w : l.anchor == "middle" ? l.x - w / 2 : l.x
+        w = Charts._line_px(join(l.lines, '\n'), l.fs)
+        offset = if l.anchor == "end"
+            w
+        elseif l.anchor == "middle"
+            w / 2
+        else
+            0
+        end
+        x1 = l.x - offset
         top, bot = l.y - l.fs, l.y + length(l.lines) * (l.fs + 3)
         pts = [(x1, top), (x1 + w, top), (x1, bot), (x1 + w, bot)]
         l.rotated || return pts
-        c, s = cospi(-0.25), sinpi(-0.25)  # rotate(-45) about the anchor
-        [
-            (l.x + (px - l.x) * c - (py - l.y) * s, l.y + (px - l.x) * s + (py - l.y) * c)
-            for (px, py) in pts
-        ]
+        map(pts) do (px, py)
+            c, s = cospi(-0.25), sinpi(-0.25)  # rotate(-45) about the anchor
+            dx, dy = px - l.x, py - l.y  # offset from the anchor, pre-rotation
+            (l.x + dx * c - dy * s, l.y + dx * s + dy * c)
+        end
     end
 
     function viewport(svg)
@@ -99,13 +108,12 @@ end
     end
 
     function contained(svg)
-        W, H = viewport(svg)
         labels = axis_labels(svg)
         @test !isempty(labels)  # a regex that matches nothing proves nothing
-        all(
-            -0.5 <= px <= W + 0.5 && -0.5 <= py <= H + 0.5 for l in labels for
-            (px, py) in corners(l)
-        )
+        in_bounds = let (W, H) = viewport(svg)
+            ((px, py),) -> -0.5 <= px <= W + 0.5 && -0.5 <= py <= H + 0.5
+        end
+        all(l -> all(in_bounds, corners(l)), labels)
     end
     bc(args...; kwargs...) = Charts.barchart(args...; kwargs...).content
     contained_barchart(args...; kwargs...) = contained(bc(args...; kwargs...))
