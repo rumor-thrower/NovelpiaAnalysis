@@ -35,6 +35,12 @@ data = Load.load("dir", 127306)
 
 Frames.add_retention!(data.episodes)
 Frames.add_cumulative_views!(data.episodes)
+Frames.add_view_diff!(data.episodes)
+
+# Chapter-level columns: add_chapter_length! requires chapter_no, so
+# add_chapters! must run first.
+Frames.add_chapters!(data.episodes)
+Frames.add_chapter_length!(data.episodes)
 
 Stats.summary(data.episodes)
 Charts.barchart(data.episodes.episode_no, data.episodes.count_view; title = "Views by episode")

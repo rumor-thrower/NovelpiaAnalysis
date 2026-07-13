@@ -19,6 +19,10 @@ data = Load.load("export_dir", 127306)
 Frames.add_retention!(data.episodes)
 Stats.summary(data.episodes)
 ```
+
+Chapter-level columns have an ordering dependency: `add_chapter_length!`
+requires the `chapter_no` column added by [`Frames.add_chapters!`](@ref), so
+`add_chapters!` must run first.
 """
 module NovelpiaAnalysis
 
