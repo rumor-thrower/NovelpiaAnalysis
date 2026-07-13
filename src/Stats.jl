@@ -67,23 +67,24 @@ function summary(episodes)
 end
 
 """
-    conditional_ratio(df, condition) -> Tuple{Float64, DataFrame, Int}
+    conditional_ratio(df, condition) -> NamedTuple
 
 Fraction of rows in `df` matching `condition` (a column-selector pair or vector
 of pairs, as accepted by `DataFrames.subset`), alongside the matching subframe
 and the row count the ratio was taken over.
 
-An empty `df` yields `(0.0, empty_subframe, 0)` rather than dividing by zero.
-That `0.0` is indistinguishable from a genuine "none of the rows matched", so
-callers that need to tell "0% of nothing" (undefined) from "0% of `n`" (a real
-zero) must branch on `total`, not on the ratio.
+Returns `(; ratio, matched, total)`. An empty `df` yields a `ratio` of `0.0`
+rather than dividing by zero. That `0.0` is indistinguishable from a genuine
+"none of the rows matched", so callers that need to tell "0% of nothing"
+(undefined) from "0% of `n`" (a real zero) must branch on `total`, not on the
+ratio.
 """
 function conditional_ratio(df, condition)
     conditions = condition isa Pair ? [condition] : condition
     matched = subset(df, conditions...)
     total = nrow(df)
     ratio = iszero(total) ? 0.0 : nrow(matched) / total
-    (ratio, matched, total)
+    (; ratio, matched, total)
 end
 
 """
@@ -149,14 +150,17 @@ _correlation_undefined(chapters) =
     iszero(var(chapters.slope))
 
 """
-    chapter_length_decline_correlation(df) -> Tuple{Union{Missing, Float64}, DataFrame}
+    chapter_length_decline_correlation(df) -> NamedTuple
 
 Pearson correlation (via `Statistics.cor`) between `chapter_length` and the
 within-chapter view-decline `slope` across chapters (see
 [`chapter_decline_slopes`](@ref)), alongside the per-chapter DataFrame used to
-compute it. Chapters with a `missing` slope are excluded first. `missing` is
-returned instead of a correlation if fewer than two chapters remain, or if
-`chapter_length` or `slope` is constant across all remaining chapters.
+compute it.
+
+Returns `(; pearson, chapters)`. Chapters with a `missing` slope are excluded
+from the correlation first (but are still present in `chapters`). `pearson` is
+`missing` if fewer than two chapters remain, or if `chapter_length` or `slope`
+is constant across all remaining chapters.
 
 A negative correlation supports the hypothesis that longer chapters
 (episode 장편화) accelerate view-count decline.
@@ -166,7 +170,7 @@ function chapter_length_decline_correlation(df)
     usable = usable_chapters(chapters)
     pearson =
         _correlation_undefined(usable) ? missing : cor(usable.chapter_length, usable.slope)
-    (pearson, chapters)
+    (; pearson, chapters)
 end
 
 """
