@@ -135,7 +135,7 @@ function barchart(
         h = ismissing(v) ? 0 : round(Int, abs(v) / span * bar_h)
         x = x0 + (i - 1) * step
         cx = x + (bw ÷ 2)
-        bar_top = ifelse(ismissing(v) || v >= 0, baseline_y - h, baseline_y)
+        bar_top = baseline_y - ifelse(ismissing(v) || v >= 0, h, 0)
         label = strs[i]                               # `tspans` escapes each line
 
         print(rects, "<g>\n")
@@ -150,7 +150,7 @@ function barchart(
         )
         if !ismissing(v)
             vw = bold_values ? " font-weight=\"bold\"" : ""
-            value_y = ifelse(v >= 0, bar_top - 4, bar_top + h + 12)
+            value_y = bar_top + ifelse(v >= 0, -4, h + 12)
             print(
                 rects,
                 "  <text x=\"$cx\" y=\"$value_y\" text-anchor=\"middle\" ",
