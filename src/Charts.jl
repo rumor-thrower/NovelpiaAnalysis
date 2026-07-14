@@ -18,9 +18,11 @@ _svg_text(s) =
 # Rough advance width of `c` in em. CJK glyphs are full-width; Latin averages
 # about half an em. Only used to reserve label space, so an approximation that
 # never *under*-estimates is what matters.
-_char_em(c::AbstractChar) =
-    c in 'ᄀ':'ᇿ' || c in '⺀':'鿿' || c in 'ꥠ':'꥿' || c in '가':'퟿' || c in '＀':'｠' ?
-    1.0 : 0.55
+_char_em(c::AbstractChar) = ifelse(
+    c in 'ᄀ':'ᇿ' || c in '⺀':'鿿' || c in 'ꥠ':'꥿' || c in '가':'퟿' || c in '＀':'｠',
+    1.0,
+    0.55,
+)
 
 # Width in px of the longest line of `label` at `font_size`.
 _line_px(label, font_size) =
@@ -83,7 +85,7 @@ function barchart(
     # `height` sizes the plot area; the room x-axis labels need is measured from
     # the labels themselves and added below it, so long or rotated labels extend
     # the drawing rather than spilling out of it.
-    label_fs = rotate_labels ? 11 : 12
+    label_fs = ifelse(rotate_labels, 11, 12)
     strs = [string(l) for l in labels]
     n_lines = maximum(count(==('\n'), s) + 1 for s in strs)
     longest = maximum(_line_px(s, label_fs) for s in strs)
@@ -117,7 +119,7 @@ function barchart(
     # `dy` inside a rotated <text> runs along the rotated normal, so stacked
     # lines separate correctly in both the rotated and horizontal cases.
     tspans(label, anchor_x) = join((
-        "<tspan x=\"$anchor_x\" dy=\"$(i == 1 ? 0 : line_h)\">$(_svg_text(line))</tspan>"
+        "<tspan x=\"$anchor_x\" dy=\"$(ifelse(isone(i), 0, line_h))\">$(_svg_text(line))</tspan>"
         for (i, line) in enumerate(split(label, '\n'))
     ),)
     rotated_label(cx, label) = (
@@ -149,7 +151,7 @@ function barchart(
             (rotate_labels ? rotated_label(cx, label) : horizontal_label(cx, label))...,
         )
         if !ismissing(v)
-            vw = bold_values ? " font-weight=\"bold\"" : ""
+            vw = ifelse(bold_values, " font-weight=\"bold\"", "")
             value_y = bar_top + ifelse(v >= 0, -4, h + 12)
             print(
                 rects,
