@@ -77,7 +77,7 @@ function barchart(
     max_v = isempty(present) ? 0.0 : max(maximum(present), 0.0)  # extends the baseline up
     min_v = isempty(present) ? 0.0 : min(minimum(present), 0.0)  # extends the baseline down
     span = max_v - min_v
-    span = iszero(span) ? 1.0 : span
+    span = ifelse(iszero(span), 1.0, span)
     color_at(i) = colors isa AbstractString ? colors : colors[i]
 
     # `height` sizes the plot area; the room x-axis labels need is measured from
@@ -108,8 +108,9 @@ function barchart(
 
     # Width: fixed `width` takes priority; otherwise derive from `bar_w`;
     # if neither is given, fall back to a default bar width.
-    bw = isnothing(bar_w) ? (isnothing(width) ? 28 : (width - 80) ÷ n) : bar_w
-    W = (isnothing(width) ? 80 + (bw + gap) * n : width) + left_pad
+    bw_default = isnothing(width) ? 28 : (width - 80) ÷ n
+    bw = ifelse(isnothing(bar_w), bw_default, bar_w)
+    W = ifelse(isnothing(width), 80 + (bw + gap) * n, width) + left_pad
     step = bw + gap
     x0 = 60 + left_pad                                # first bar's left edge
 
@@ -134,7 +135,7 @@ function barchart(
         h = ismissing(v) ? 0 : round(Int, abs(v) / span * bar_h)
         x = x0 + (i - 1) * step
         cx = x + (bw ÷ 2)
-        bar_top = (ismissing(v) || v >= 0) ? baseline_y - h : baseline_y
+        bar_top = ifelse(ismissing(v) || v >= 0, baseline_y - h, baseline_y)
         label = strs[i]                               # `tspans` escapes each line
 
         print(rects, "<g>\n")
@@ -149,7 +150,7 @@ function barchart(
         )
         if !ismissing(v)
             vw = bold_values ? " font-weight=\"bold\"" : ""
-            value_y = v >= 0 ? bar_top - 4 : bar_top + h + 12
+            value_y = ifelse(v >= 0, bar_top - 4, bar_top + h + 12)
             print(
                 rects,
                 "  <text x=\"$cx\" y=\"$value_y\" text-anchor=\"middle\" ",
