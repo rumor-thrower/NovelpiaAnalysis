@@ -105,8 +105,9 @@ function barchart(
 
     H = height + label_pad
     bar_h = height - 100                              # vertical area occupied by bars
+    px_per_unit = bar_h / span
     axis_y = height - 20                              # where x-axis labels start
-    baseline_y = (height - 60) - round(Int, -min_v / span * bar_h)
+    baseline_y = (height - 60) - round(Int, -min_v * px_per_unit)
 
     # Width: fixed `width` takes priority; otherwise derive from `bar_w`;
     # if neither is given, fall back to a default bar width.
@@ -134,7 +135,7 @@ function barchart(
 
     rects = IOBuffer()
     for (i, v) in enumerate(vals)
-        h = ismissing(v) ? 0 : round(Int, abs(v) / span * bar_h)
+        h = ismissing(v) ? 0 : round(Int, abs(v) * px_per_unit)
         x = x0 + (i - 1) * step
         cx = x + (bw ÷ 2)
         bar_top = baseline_y - ifelse(ismissing(v) || v >= 0, h, 0)
