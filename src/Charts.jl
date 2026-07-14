@@ -89,13 +89,16 @@ function barchart(
     longest = maximum(_line_px(s, label_fs) for s in strs)
     line_h = label_fs + 3
 
-    (label_pad, left_pad) = if rotate_labels
-        # Anchored at `end` and rotated -45°, a label reaches `longest/√2` down
-        # and to the left of its anchor; stacked lines add `n_lines` more.
-        reach = longest / sqrt(2)
-        (round(Int, reach + n_lines * line_h) + 12, round(Int, reach) + 8)
-    else
-        (n_lines * line_h + 12, 0)
+    (label_pad, left_pad) = let base_pad = n_lines * line_h + 12
+        if rotate_labels
+            # Anchored at `end` and rotated -45°, a label reaches `longest/√2` down
+            # and to the left of its anchor; stacked lines add `n_lines` more.
+            reach = longest / sqrt(2)
+            reach_i = round(Int, reach)
+            (reach_i + base_pad, reach_i + 8)
+        else
+            (base_pad, 0)
+        end
     end
 
     H = height + label_pad
