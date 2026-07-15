@@ -25,6 +25,13 @@ const DELETED_NOVEL_NO = 2
     @test isempty(data.reviews)
 end
 
+@testset "_parse_reg_date" begin
+    @test Load._parse_reg_date(missing) === missing
+    @test Load._parse_reg_date("") === missing
+    @test Load._parse_reg_date("23.03.23") == Date(2023, 3, 23)
+    @test Load._parse_reg_date("99.12.31") == Date(2099, 12, 31)
+end
+
 @testset "Load deleted novel (empty episodes.csv)" begin
     # A novel removed from Novelpia (episode_count == 0) writes a
     # completely empty episodes.csv with no header row. read_episodes
