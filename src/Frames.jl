@@ -21,12 +21,13 @@ export add_retention!,
     add_retention!(df) -> df
 
 Adds a `retention` column: each episode's `count_view` divided by episode 1's
-`count_view`, ordered by `episode_no`. `missing` propagates through division.
+`count_view`, ordered by `episode_no`. Rounded to two decimals, since every
+consumer of it is a display. `missing` propagates through division.
 """
 function add_retention!(df)
     sort!(df, :episode_no)
     first_view = isempty(df.count_view) ? missing : first(df.count_view)
-    df.retention = df.count_view ./ first_view
+    df.retention = round.(df.count_view ./ first_view; digits = 2)
     df
 end
 
