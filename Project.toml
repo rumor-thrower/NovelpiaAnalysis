@@ -1,6 +1,6 @@
 name = "NovelpiaAnalysis"
 uuid = "7c9c1f6e-3b8e-4b7d-9b1a-2e6c5f0a9d3b"
-version = "0.10.9"
+version = "0.10.10"
 authors = ["rumor-thrower <87070008+rumor-thrower@users.noreply.github.com>"]
 
 [deps]
@@ -8,7 +8,6 @@ CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
-JuliaFormatter = "98e50ef6-434e-11e9-1051-2b60c6c9e899"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
@@ -16,6 +15,5 @@ CSV = "~0.10"
 DataFrames = "~1"
 Dates = "1"
 JSON3 = "~1"
-JuliaFormatter = "2.10.1"
 Statistics = "1"
 julia = "1.10"
