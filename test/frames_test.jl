@@ -98,6 +98,41 @@ end
     @test default_grouped.chapter_no == [1, 2, 3, 4, 5]
 end
 
+@testset "Frames.chapter_base_prefix" begin
+    # Keeps the leading chapter marker (up to the first `-`) and drops the
+    # per-episode subtitle that follows it, unlike chapter_base which would
+    # keep the whole (never-repeating) title and put every episode in its
+    # own chapter.
+    base_prefix = Frames.chapter_base_prefix
+    @test base_prefix("1장-탈출 성공?!") == "1장"
+    @test base_prefix("1장-점 한번 보고 가시죠") == "1장"
+    @test base_prefix("최종장-그 후..1") == "최종장"
+    # Subtitles may contain their own dash: split on the first one only.
+    @test base_prefix("천기누설(IF)#1-신뢰의 대가1") == "천기누설(IF)#1"
+    # No dash at all: returned unchanged (trimmed).
+    @test base_prefix("무점살 완결 후기(를 빙자한 잡담)!+Q&A") ==
+          "무점살 완결 후기(를 빙자한 잡담)!+Q&A"
+    @test ismissing(base_prefix(missing))
+
+    # Regression: novel 97958, whose titles are "N장-<subtitle>" with a
+    # distinct subtitle on every episode. Grouping with the default
+    # chapter_base puts every episode in its own chapter, since no two
+    # titles are ever equal and there's no trailing part marker to strip.
+    episodes = Load.read_episodes(FIXTURES, 97958)
+    Frames.add_chapters!(episodes; base_fn = Frames.chapter_base_prefix)
+    @test episodes.chapter_no[1] == 1
+    @test episodes.chapter_title[1] == "점쟁이는 자신의 미래를 볼 수 없다."
+    # "1장" runs 9 consecutive episodes into a single chapter.
+    @test count(==("1장"), episodes.chapter_title) == 9
+    @test length(unique(episodes.chapter_no[episodes.chapter_title .== "1장"])) == 1
+    # An intervening side-story ("천기누설(IF)#1") splits the surrounding "2장"
+    # run into two distinct chapters (consecutive-run semantics).
+    two_jang_chapters =
+        unique(episodes.chapter_no[coalesce.(episodes.chapter_title .== "2장", false)])
+    @test length(two_jang_chapters) == 2
+    @test maximum(episodes.chapter_no) == 25
+end
+
 @testset "Frames.add_chapter_length!" begin
     episodes = Load.read_episodes(FIXTURES, 777)
     Frames.add_chapters!(episodes)
