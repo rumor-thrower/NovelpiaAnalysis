@@ -61,8 +61,8 @@ end
 # npia's `reg_date` is written as "YY.MM.DD" (2-digit year), not ISO 8601.
 # `dateformat"yy.mm.dd"` parses the 2-digit year literally (23 -> year 23), so the
 # century is added explicitly; Novelpia has no 20th-century content to disambiguate.
+_parse_reg_date(::Missing) = missing
 function _parse_reg_date(s::Union{Missing,AbstractString})
-    ismissing(s) && return missing
     isempty(s) && return missing
     Date(s, dateformat"yy.mm.dd") + Year(2000)
 end
