@@ -14,6 +14,7 @@ export add_retention!,
     add_chapters!,
     chapter_base,
     chapter_base_no_serial,
+    chapter_base_prefix,
     add_chapter_length!
 
 """
@@ -109,6 +110,29 @@ chapter_base_no_serial(::Missing) = missing
 chapter_base_no_serial(title::AbstractString) =
     chapter_base(replace(title, _SERIAL_PREFIX => ""))
 
+# The delimiter between a leading chapter marker ("1장", "최종장", "천기누설(IF)#1")
+# and the per-episode subtitle that follows it, for novels where the subtitle
+# changes on every single episode rather than repeating or carrying a trailing
+# part marker. Split on the first dash only: subtitles routinely contain their
+# own dashes, so a greedy/last-dash split would cut into the subtitle instead.
+const _LEADING_PREFIX_DELIM = r"-.*$"
+
+"""
+    chapter_base_prefix(title) -> String
+
+Like [`chapter_base`](@ref), but for novels whose titles are a leading chapter
+marker followed by a per-episode subtitle that changes every episode (e.g.
+`"1장-탈출 성공?!"`, `"1장-점 한번 보고 가시죠"`, both reducing to `"1장"`), where
+`chapter_base` alone would treat every episode as its own chapter since the
+titles never repeat and carry no trailing part marker. Keeps everything before
+the *first* `-` (subtitles may contain their own dashes) and trims surrounding
+whitespace; a title with no dash is returned unchanged (trimmed). `missing`
+passes through.
+"""
+chapter_base_prefix(::Missing) = missing
+chapter_base_prefix(title::AbstractString) =
+    strip(replace(title, _LEADING_PREFIX_DELIM => ""))
+
 """
     add_chapters!(df; base_fn=chapter_base) -> df
 
@@ -120,7 +144,8 @@ Groups episodes into chapters (단원) and adds two columns, ordered by `episode
 Episodes are grouped into maximal *consecutive* runs sharing the same base title,
 as computed by `base_fn` (default [`chapter_base`](@ref); pass
 [`chapter_base_no_serial`](@ref) for novels titled with a leading global episode
-serial instead of chapter numbering). The run breaks whenever the base title
+serial instead of chapter numbering, or [`chapter_base_prefix`](@ref) for novels
+whose per-episode subtitle changes every episode). The run breaks whenever the base title
 changes, so a base title that reappears later (after an intervening chapter)
 starts a fresh chapter rather than merging non-adjacent episodes. A `missing`
 title forms a base of its own and never merges with a neighbour. An empty frame
