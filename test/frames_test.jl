@@ -1,7 +1,8 @@
 @testset "Frames" begin
     episodes = Load.read_episodes(FIXTURES, NOVEL_NO)
     Frames.add_retention!(episodes)
-    @test episodes.retention == episodes.count_view ./ first(episodes.count_view)
+    @test episodes.retention ==
+          round.(episodes.count_view ./ first(episodes.count_view); digits = 2)
     @test isone(first(episodes.retention))
 
     Frames.add_cumulative_views!(episodes)
