@@ -163,19 +163,17 @@ function barchart(
         print(rects, "</g>\n")
     end
 
-    legend_svg = ""
-    if !isnothing(legend)
-        parts = String[]
-        for (i, (l, c)) in enumerate(legend)
-            push!(
-                parts,
+    legend_svg =
+        isnothing(legend) ? "" :
+        join(
+            (
                 "<g transform=\"translate($(W-130+i*55),12)\">" *
                 "<rect width=\"12\" height=\"12\" fill=\"$c\" rx=\"2\"/>" *
-                "<text x=\"16\" y=\"10\" font-size=\"11\">$(_svg_text(l))</text></g>",
-            )
-        end
-        legend_svg = join(parts, "\n")
-    end
+                "<text x=\"16\" y=\"10\" font-size=\"11\">$(_svg_text(l))</text></g>" for
+                (i, (l, c)) in enumerate(legend)
+            ),
+            "\n",
+        )
 
     svg =
         "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"$W\" height=\"$H\" " *
