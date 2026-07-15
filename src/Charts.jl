@@ -18,9 +18,11 @@ _svg_text(s) =
 # Rough advance width of `c` in em. CJK glyphs are full-width; Latin averages
 # about half an em. Only used to reserve label space, so an approximation that
 # never *under*-estimates is what matters.
-_char_em(c::AbstractChar) =
-    c in 'ᄀ':'ᇿ' || c in '⺀':'鿿' || c in 'ꥠ':'꥿' || c in '가':'퟿' || c in '＀':'｠' ?
-    1.0 : 0.55
+_char_em(c::AbstractChar) = ifelse(
+    c in 'ᄀ':'ᇿ' || c in '⺀':'鿿' || c in 'ꥠ':'꥿' || c in '가':'퟿' || c in '＀':'｠',
+    1.0,
+    0.55,
+)
 
 # Width in px of the longest line of `label` at `font_size`.
 _line_px(label, font_size) =
@@ -77,45 +79,48 @@ function barchart(
     max_v = isempty(present) ? 0.0 : max(maximum(present), 0.0)  # extends the baseline up
     min_v = isempty(present) ? 0.0 : min(minimum(present), 0.0)  # extends the baseline down
     span = max_v - min_v
-    span = iszero(span) ? 1.0 : span
+    span = ifelse(iszero(span), 1.0, span)
     color_at(i) = colors isa AbstractString ? colors : colors[i]
 
     # `height` sizes the plot area; the room x-axis labels need is measured from
     # the labels themselves and added below it, so long or rotated labels extend
     # the drawing rather than spilling out of it.
-    label_fs = rotate_labels ? 11 : 12
+    label_fs = ifelse(rotate_labels, 11, 12)
     strs = [string(l) for l in labels]
     n_lines = maximum(count(==('\n'), s) + 1 for s in strs)
     longest = maximum(_line_px(s, label_fs) for s in strs)
     line_h = label_fs + 3
 
-    if rotate_labels
-        # Anchored at `end` and rotated -45°, a label reaches `longest/√2` down
-        # and to the left of its anchor; stacked lines add `n_lines` more.
-        reach = longest / sqrt(2)
-        label_pad = round(Int, reach + n_lines * line_h) + 12
-        left_pad = round(Int, reach) + 8
-    else
-        label_pad = n_lines * line_h + 12
-        left_pad = 0
+    (label_pad, left_pad) = let base_pad = n_lines * line_h + 12
+        if rotate_labels
+            # Anchored at `end` and rotated -45°, a label reaches `longest/√2` down
+            # and to the left of its anchor; stacked lines add `n_lines` more.
+            reach = longest / sqrt(2)
+            reach_i = round(Int, reach)
+            (reach_i + base_pad, reach_i + 8)
+        else
+            (base_pad, 0)
+        end
     end
 
     H = height + label_pad
     bar_h = height - 100                              # vertical area occupied by bars
+    px_per_unit = bar_h / span
     axis_y = height - 20                              # where x-axis labels start
-    baseline_y = (height - 60) - round(Int, -min_v / span * bar_h)
+    baseline_y = (height - 60) - round(Int, -min_v * px_per_unit)
 
     # Width: fixed `width` takes priority; otherwise derive from `bar_w`;
     # if neither is given, fall back to a default bar width.
-    bw = isnothing(bar_w) ? (isnothing(width) ? 28 : (width - 80) ÷ n) : bar_w
-    W = (isnothing(width) ? 80 + (bw + gap) * n : width) + left_pad
+    bw_default = isnothing(width) ? 28 : (width - 80) ÷ n
+    bw = ifelse(isnothing(bar_w), bw_default, bar_w)
+    W = ifelse(isnothing(width), 80 + (bw + gap) * n, width) + left_pad
     step = bw + gap
     x0 = 60 + left_pad                                # first bar's left edge
 
     # `dy` inside a rotated <text> runs along the rotated normal, so stacked
     # lines separate correctly in both the rotated and horizontal cases.
     tspans(label, anchor_x) = join((
-        "<tspan x=\"$anchor_x\" dy=\"$(i == 1 ? 0 : line_h)\">$(_svg_text(line))</tspan>"
+        "<tspan x=\"$anchor_x\" dy=\"$(ifelse(isone(i), 0, line_h))\">$(_svg_text(line))</tspan>"
         for (i, line) in enumerate(split(label, '\n'))
     ),)
     rotated_label(cx, label) = (
@@ -130,10 +135,10 @@ function barchart(
 
     rects = IOBuffer()
     for (i, v) in enumerate(vals)
-        h = ismissing(v) ? 0 : round(Int, abs(v) / span * bar_h)
+        h = ismissing(v) ? 0 : round(Int, abs(v) * px_per_unit)
         x = x0 + (i - 1) * step
         cx = x + (bw ÷ 2)
-        bar_top = (ismissing(v) || v >= 0) ? baseline_y - h : baseline_y
+        bar_top = baseline_y - ifelse(ismissing(v) || v >= 0, h, 0)
         label = strs[i]                               # `tspans` escapes each line
 
         print(rects, "<g>\n")
@@ -147,8 +152,8 @@ function barchart(
             (rotate_labels ? rotated_label(cx, label) : horizontal_label(cx, label))...,
         )
         if !ismissing(v)
-            vw = bold_values ? " font-weight=\"bold\"" : ""
-            value_y = v >= 0 ? bar_top - 4 : bar_top + h + 12
+            vw = ifelse(bold_values, " font-weight=\"bold\"", "")
+            value_y = bar_top + ifelse(v >= 0, -4, h + 12)
             print(
                 rects,
                 "  <text x=\"$cx\" y=\"$value_y\" text-anchor=\"middle\" ",
