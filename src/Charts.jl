@@ -86,7 +86,7 @@ function barchart(
     # the labels themselves and added below it, so long or rotated labels extend
     # the drawing rather than spilling out of it.
     label_fs = ifelse(rotate_labels, 11, 12)
-    strs = [string(l) for l in labels]
+    strs = string.(labels)
     n_lines = maximum(count(==('\n'), s) + 1 for s in strs)
     longest = maximum(_line_px(s, label_fs) for s in strs)
     line_h = label_fs + 3
