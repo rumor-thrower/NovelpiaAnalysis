@@ -37,7 +37,7 @@ end
     # 6 chapters: 프롤로그 | 각성(×3) | 수련(×3) | 결전(×2) | 여담(×2 bare repeat) |
     # 각성 again (reappearing base is a NEW chapter, not merged with the first).
     @test episodes.chapter_no == [1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6]
-    @test unique(episodes.chapter_title[episodes.chapter_no .== 2]) == ["각성"]
+    @test unique!(episodes.chapter_title[episodes.chapter_no .== 2]) == ["각성"]
     @test episodes.chapter_title[end] == "각성"          # ch6 base equals ch2 base
     @test episodes.chapter_no[end] == 6                  # but is a distinct chapter
     # chapter_no is constant within a chapter and strictly increases across them.
@@ -121,15 +121,15 @@ end
     # titles are ever equal and there's no trailing part marker to strip.
     episodes = Load.read_episodes(FIXTURES, 97958)
     Frames.add_chapters!(episodes; base_fn = Frames.chapter_base_prefix)
-    @test episodes.chapter_no[1] == 1
-    @test episodes.chapter_title[1] == "점쟁이는 자신의 미래를 볼 수 없다."
+    @test first(episodes.chapter_no) == 1
+    @test first(episodes.chapter_title) == "점쟁이는 자신의 미래를 볼 수 없다."
     # "1장" runs 9 consecutive episodes into a single chapter.
     @test count(==("1장"), episodes.chapter_title) == 9
-    @test length(unique(episodes.chapter_no[episodes.chapter_title .== "1장"])) == 1
+    @test length(unique!(episodes.chapter_no[episodes.chapter_title .== "1장"])) == 1
     # An intervening side-story ("천기누설(IF)#1") splits the surrounding "2장"
     # run into two distinct chapters (consecutive-run semantics).
     two_jang_chapters =
-        unique(episodes.chapter_no[coalesce.(episodes.chapter_title .== "2장", false)])
+        unique!(episodes.chapter_no[coalesce.(episodes.chapter_title .== "2장", false)])
     @test length(two_jang_chapters) == 2
     @test maximum(episodes.chapter_no) == 25
 end
@@ -139,7 +139,8 @@ end
     Frames.add_chapters!(episodes)
     Frames.add_chapter_length!(episodes)
     # Same chapter sizes as the add_chapters! testset: 1,3,3,2,2,1
-    @test episodes.chapter_length == [1, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 1]
+    @test episodes.chapter_length ==
+          vcat(fill(1, 1), fill(3, 3), fill(3, 3), fill(2, 2), fill(2, 2), fill(1, 1))
     @test episodes.chapter_length[episodes.chapter_no .== 2] == fill(3, 3)
 
     e = DataFrame(episode_no = Int[], title = String[])
