@@ -95,18 +95,35 @@ remain after dropping any pair with a `missing` value, or if `x` is constant
 (zero variance, undefined slope).
 """
 function _ols_slope(x, y)
-    keep = .!ismissing.(x) .& .!ismissing.(y)
-    # `keep` masks out every `missing` in both inputs, so the survivors carry none;
-    # `disallowmissing` narrows the element type to match, which keeps the OLS
-    # arithmetic below type-stable (a lingering `Missing` in the element type would
-    # otherwise widen `ybar` and the returned slope to `Any`).
-    xs = Float64.(disallowmissing(x[keep]))
-    ys = Float64.(disallowmissing(y[keep]))
-    length(xs) < 2 && return missing
-    # cov/var share the same 1/(n-1) correction, which cancels in the ratio, so
-    # this is the plain normal-equation slope Σ(x-x̄)(y-ȳ) / Σ(x-x̄)².
-    denom = var(xs)
-    iszero(denom) ? missing : cov(xs, ys) / denom
+    # Both loops skip any pair carrying a `missing` and widen the rest to
+    # `Float64` inline. Masking the inputs into `disallowmissing` copies first
+    # would read more directly, but it allocates five temporaries per call, and
+    # `chapter_decline_slopes` calls this once per chapter.
+    n = 0
+    sx = 0.0
+    sy = 0.0
+    for (xi, yi) in zip(x, y)
+        (ismissing(xi) || ismissing(yi)) && continue
+        n += 1
+        sx += Float64(xi)
+        sy += Float64(yi)
+    end
+    n < 2 && return missing
+    x̄ = sx / n
+    ȳ = sy / n
+    # The normal-equation slope Σ(x-x̄)(y-ȳ) / Σ(x-x̄)². The centering must happen
+    # before the multiply: the algebraically equal Σx² - (Σx)²/n form cancels
+    # catastrophically once x is large relative to its spread, and `charts.jl`'s
+    # unlogged fit passes raw view counts, which reach into the millions.
+    sxx = 0.0
+    sxy = 0.0
+    for (xi, yi) in zip(x, y)
+        (ismissing(xi) || ismissing(yi)) && continue
+        dx = Float64(xi) - x̄
+        sxx += dx * dx
+        sxy += dx * (Float64(yi) - ȳ)
+    end
+    iszero(sxx) ? missing : sxy / sxx
 end
 
 """
