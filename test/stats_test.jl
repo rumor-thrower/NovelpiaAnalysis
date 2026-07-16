@@ -57,6 +57,31 @@
     end
 end
 
+@testset "Stats._ols_slope" begin
+    @test Stats._ols_slope(1:5, [2, 4, 6, 8, 10]) ≈ 2
+    @test Stats._ols_slope(1:3, [10, 5, 0]) ≈ -5
+
+    # Pairs are dropped whenever either side is `missing`, leaving the slope of
+    # the survivors -- here the same clean -5 trend as above.
+    @test Stats._ols_slope(1:5, [10, missing, 0, missing, -10]) ≈ -5
+    @test Stats._ols_slope([1, missing, 3], [10, 5, 0]) ≈ -5
+
+    # Fewer than two usable pairs: no line is defined.
+    @test ismissing(Stats._ols_slope(Int[], Int[]))
+    @test ismissing(Stats._ols_slope([1], [5]))
+    @test ismissing(Stats._ols_slope(1:3, [10, missing, missing]))
+
+    # Constant x: the slope would divide by zero variance.
+    @test ismissing(Stats._ols_slope(fill(3, 4), [1, 2, 3, 4]))
+
+    # A large x offset against a tiny spread: the algebraically equivalent
+    # Σx² - (Σx)²/n accumulation loses every significant digit here and reports
+    # a zero slope, so this pins the centered form. `charts.jl` fits unlogged
+    # view counts, which reach this magnitude.
+    big = 1.0e9 .+ (1:50)
+    @test Stats._ols_slope(big, 3 .* big) ≈ 3
+end
+
 @testset "Stats.chapter_decline_slopes / chapter_length_decline_correlation" begin
     # Synthetic novel: 3 chapters, each with a perfectly linear within-chapter
     # trend, engineered so the decline rate scales with chapter length --
