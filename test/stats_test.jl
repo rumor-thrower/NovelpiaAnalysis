@@ -48,7 +48,7 @@
     for (df, expected_ratio, expected_matched, expected_total) in (
         (episodes, 1, 2, 2),
         (DataFrame(is_free = Bool[]), 0, 0, 0),
-        (DataFrame(is_free = [false, false, false]), 0, 0, 3),
+        (DataFrame(is_free = falses(3)), 0, 0, 3),
     )
         (; ratio, matched, total) = Stats.conditional_ratio(df, :is_free => identity)
         @test ratio == expected_ratio
@@ -66,11 +66,11 @@ end
     # ch3 (length 4): 100 -> 70 -> 40 -> 10 (slope -30)
     df = DataFrame(
         episode_no = 1:9,
-        chapter_no = [1, 1, 2, 2, 2, 3, 3, 3, 3],
+        chapter_no = vcat(fill(1, 2), fill(2, 3), fill(3, 4)),
         count_view = [100, 90, 100, 80, 60, 100, 70, 40, 10],
     )
     Frames.add_chapter_length!(df)
-    @test df.chapter_length == [2, 2, 3, 3, 3, 4, 4, 4, 4]
+    @test df.chapter_length == vcat(fill(2, 2), fill(3, 3), fill(4, 4))
 
     chapter_length_decline_correlation = Stats.chapter_length_decline_correlation
 
@@ -99,7 +99,7 @@ end
     # ch1 (length 2): 100 -> 90, ch2 (length 3): 50 -> 40 -> 30 (both slope -10)
     flat = DataFrame(
         episode_no = 1:5,
-        chapter_no = [1, 1, 2, 2, 2],
+        chapter_no = vcat(fill(1, 2), fill(2, 3)),
         count_view = [100, 90, 50, 40, 30],
     )
     Frames.add_chapter_length!(flat)
@@ -117,14 +117,14 @@ end
     spearman_cor = Stats.spearman_cor
     # Perfectly monotone (but nonlinear) x/y -> Spearman is exactly ±1 while
     # Pearson is not, which is the whole point of the rank correlation.
-    x = [1, 2, 3, 4, 5]
-    y = [1, 4, 9, 16, 25]  # strictly increasing, convex
+    x = 1:5
+    y = (1:5) .^ 2  # strictly increasing, convex
     @test spearman_cor(x, y) ≈ 1.0
     @test spearman_cor(x, reverse(y)) ≈ -1.0
     # Robustness: an extreme x-outlier that preserves the rank order leaves
     # Spearman at exactly 1.0, where Pearson would be dragged toward it.
-    xo = [1, 2, 3, 4, 100]
-    yo = [1, 2, 3, 4, 5]
+    xo = [(1:4)..., 100]
+    yo = 1:5
     @test spearman_cor(xo, yo) ≈ 1.0
     # Too few pairs for a correlation to vary: `cor` would throw on the empty
     # sample and return NaN on the single pair, so both report `missing`.
@@ -141,7 +141,7 @@ end
     # bucks the trend, to exercise the drop-long path.
     df = DataFrame(
         episode_no = 1:15,
-        chapter_no = [1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4],
+        chapter_no = vcat(fill(1, 2), fill(2, 3), fill(3, 4), fill(4, 6)),
         count_view = [
             100,
             90,
@@ -153,12 +153,7 @@ end
             40,
             10,
             # ch4: length 6, but a gently *rising* trend (positive slope)
-            10,
-            20,
-            30,
-            40,
-            50,
-            60,
+            (10:10:60)...,
         ],
     )
     Frames.add_chapter_length!(df)
