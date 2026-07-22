@@ -1,0 +1,12 @@
+{
+  "novel_no": 102155,
+  "exported_at": "2026-07-10T01:39:16Z",
+  "sort": "DOWN",
+  "episode_count": 1301,
+  "view_count_rows": 1301,
+  "review_count": 1,
+  "files": [
+    "episodes.csv",
+    "reviews.csv"
+  ]
+}
