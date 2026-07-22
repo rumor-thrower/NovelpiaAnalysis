@@ -69,7 +69,7 @@ end
     @testset "missing title never merges with either neighbour" begin
         m = DataFrame(episode_no = 1:3, title = ["A", missing, "A"])
         Frames.add_chapters!(m)
-        @test m.chapter_no == [1, 2, 3]
+        @test m.chapter_no == 1:3
         @test ismissing(m.chapter_title[2])
     end
 
@@ -135,7 +135,7 @@ end
         # episode (the bug this was written to fix).
         default_grouped = DataFrame(episode_no = 1:5, title = episodes.title)
         Frames.add_chapters!(default_grouped)
-        @test default_grouped.chapter_no == [1, 2, 3, 4, 5]
+        @test default_grouped.chapter_no == 1:5
     end
 end
 
@@ -291,7 +291,7 @@ end
         # chapter per episode (the bug this was written to fix).
         default_grouped = DataFrame(episode_no = 1:6, title = episodes.title)
         Frames.add_chapters!(default_grouped)
-        @test default_grouped.chapter_no == [1, 2, 3, 4, 5, 6]
+        @test default_grouped.chapter_no == 1:6
     end
 end
 
