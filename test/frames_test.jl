@@ -57,7 +57,8 @@ end
         Frames.add_chapters!(episodes)
         # 6 chapters: 프롤로그 | 각성(×3) | 수련(×3) | 결전(×2) | 여담(×2 bare repeat) |
         # 각성 again (reappearing base is a NEW chapter, not merged with the first).
-        @test episodes.chapter_no == [1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6]
+        @test episodes.chapter_no ==
+              vcat(fill(1, 1), fill(2, 3), fill(3, 3), fill(4, 2), fill(5, 2), fill(6, 1))
         @test unique!(episodes.chapter_title[episodes.chapter_no .== 2]) == ["각성"]
         @test episodes.chapter_title[end] == "각성"          # ch6 base equals ch2 base
         @test episodes.chapter_no[end] == 6                  # but is a distinct chapter
@@ -126,7 +127,7 @@ end
             ],
         )
         Frames.add_chapters!(episodes; base_fn = Frames.chapter_base_no_serial)
-        @test episodes.chapter_no == [1, 2, 2, 2, 3]
+        @test episodes.chapter_no == vcat(fill(1, 1), fill(2, 3), fill(3, 1))
         @test episodes.chapter_title ==
               ["능력 각성", "뱀파이어 형사", "뱀파이어 형사", "뱀파이어 형사", "영천류"]
 
@@ -276,7 +277,7 @@ end
             ],
         )
         Frames.add_chapters!(episodes; base_fn = Frames.chapter_base_trailing_num)
-        @test episodes.chapter_no == [1, 2, 2, 2, 3, 3]
+        @test episodes.chapter_no == vcat(fill(1, 1), fill(2, 3), fill(3, 2))
         @test episodes.chapter_title == [
             "두 개의 기도",
             "나이트런",
