@@ -66,6 +66,10 @@ end
     @test base_no_serial("001. 능력 각성") == "능력 각성"
     # Still strips trailing part markers same as chapter_base.
     @test base_no_serial("012. 각성(1)") == "각성"
+    # The space after the dot is optional (some novels omit it, some mix both
+    # forms within the same title list).
+    @test base_no_serial("5.눈먼 신도들") == "눈먼 신도들"
+    @test base_no_serial("1.첫만남") == "첫만남"
     # A bare chapter-numbering prefix (no global serial) is also consumed —
     # this is the intended behavioural difference from chapter_base, which
     # keeps it. Callers pick whichever base_fn matches their novel's titling.
@@ -179,6 +183,48 @@ end
     Frames.add_chapters!(default_grouped)
     @test length(unique(default_grouped.chapter_no[same_chapter_range])) ==
           length(same_chapter_range)
+end
+
+@testset "Frames.chapter_base_trailing_num" begin
+    # Strips a trailing bare number (just whitespace before it, no paren/dash/
+    # hash), unlike chapter_base whose _PART_MARKER requires that punctuation.
+    base_trailing = Frames.chapter_base_trailing_num
+    @test base_trailing("마고열 1") == "마고열"
+    @test base_trailing("마고열 12") == "마고열"
+    @test base_trailing("나이트런 1") == "나이트런"
+    # No trailing number: returned unchanged (trimmed).
+    @test base_trailing("두 개의 기도") == "두 개의 기도"
+    # A trailing parenthesised number is left alone — chapter_base already
+    # handles that shape, and this function only targets the punctuation-free
+    # form.
+    @test base_trailing("각성(1)") == "각성(1)"
+    @test ismissing(base_trailing(missing))
+
+    # Regression: a novel that reuses the chapter title verbatim per episode,
+    # appending only a bare episode-within-chapter number ("마고열 1", "마고열
+    # 2", ...). With the default chapter_base, the trailing number carries no
+    # recognized marker punctuation, so every episode looks like a new chapter.
+    episodes = DataFrame(
+        episode_no = 1:6,
+        title = [
+            "두 개의 기도",
+            "나이트런 1",
+            "나이트런 2",
+            "나이트런 3",
+            "메모라이즈 1",
+            "메모라이즈 2",
+        ],
+    )
+    Frames.add_chapters!(episodes; base_fn = Frames.chapter_base_trailing_num)
+    @test episodes.chapter_no == [1, 2, 2, 2, 3, 3]
+    @test episodes.chapter_title ==
+          ["두 개의 기도", "나이트런", "나이트런", "나이트런", "메모라이즈", "메모라이즈"]
+
+    # Without stripping the trailing number, the same data falls into one
+    # chapter per episode (the bug this was written to fix).
+    default_grouped = DataFrame(episode_no = 1:6, title = episodes.title)
+    Frames.add_chapters!(default_grouped)
+    @test default_grouped.chapter_no == [1, 2, 3, 4, 5, 6]
 end
 
 @testset "Frames.add_chapter_length!" begin
