@@ -16,6 +16,7 @@ export add_retention!,
     chapter_base_no_serial,
     chapter_base_prefix,
     chapter_base_episode_numbered,
+    chapter_base_trailing_num,
     add_chapter_length!
 
 """
@@ -92,21 +93,27 @@ chapter_base(::Missing) = missing
 chapter_base(title::AbstractString) = strip(replace(title, _PART_MARKER => ""))
 
 # A leading *global episode serial*, as opposed to chapter numbering: a run of
-# digits followed by ". " (optionally zero-padded, e.g. "001. ", "012. ") at the
-# very start of the title. Unlike chapter numbering ("3화", "#04_", "S1."), this
-# form increments every episode regardless of chapter, so it must be stripped
-# before comparing titles — otherwise every episode looks like a new chapter.
-const _SERIAL_PREFIX = r"^\d+\.\s+"
+# digits followed by "." (optionally zero-padded, e.g. "001. ", "012.", "5.") at
+# the very start of the title, with the following space optional — some novels
+# space every episode ("1. 제목"), some space none ("1.제목"), and some mix the
+# two within the same title list. Unlike chapter numbering ("3화", "#04_",
+# "S1."), this form increments every episode regardless of chapter, so it must
+# be stripped before comparing titles — otherwise every episode looks like a
+# new chapter.
+const _SERIAL_PREFIX = r"^\d+\.\s*"
 
 """
     chapter_base_no_serial(title) -> String
 
 Like [`chapter_base`](@ref), but additionally strips a leading *global episode
-serial* — a zero-padded number followed by `". "` (e.g. `"012. "`) — before
-computing the base. Use this instead of `chapter_base` for novels whose titles
-are numbered by episode rather than by chapter (e.g. `"012. 뱀파이어 형사"`,
-`"013. 뱀파이어 형사"`, both reducing to `"뱀파이어 형사"`), where `chapter_base`
-alone would treat every episode as its own chapter. `missing` passes through.
+serial* — a zero-padded number followed by `"."` and optional whitespace (e.g.
+`"012. "`, `"5."`) — before computing the base. Use this instead of
+`chapter_base` for novels whose titles are numbered by episode rather than by
+chapter (e.g. `"012. 뱀파이어 형사"`, `"013. 뱀파이어 형사"`, both reducing to
+`"뱀파이어 형사"`), where `chapter_base` alone would treat every episode as its
+own chapter. The whitespace after the dot is optional and need not be
+consistent across a novel's titles (`"1.제목"` and `"1. 제목"` both strip).
+`missing` passes through.
 """
 chapter_base_no_serial(::Missing) = missing
 chapter_base_no_serial(title::AbstractString) =
@@ -169,6 +176,28 @@ chapter_base_episode_numbered(::Missing) = missing
 chapter_base_episode_numbered(title::AbstractString) =
     strip(replace(replace(title, _EPISODE_NO_PREFIX => ""), _PART_MARKER_FIN => ""))
 
+# Like `_PART_MARKER`, but for a within-chapter position appended as a bare
+# number with no surrounding punctuation — just whitespace before it, e.g.
+# "마고열 1", "마고열 2" — observed on novels that otherwise reuse the chapter
+# title verbatim per episode. `_PART_MARKER` requires a paren/dash/hash before
+# the digit and so never matches this form.
+const _TRAILING_NUM_MARKER = r"\s+\d+\s*$"
+
+"""
+    chapter_base_trailing_num(title) -> String
+
+Like [`chapter_base`](@ref), but for novels whose within-chapter part marker is
+a bare trailing number with no punctuation (e.g. `"마고열 1"`, `"마고열 2"`,
+both reducing to `"마고열"`), where `chapter_base` alone would treat every
+episode as its own chapter since `_PART_MARKER` requires a paren, dash, or hash
+before the digit. Strips a trailing run of whitespace followed by digits and
+trims the result; a title with no such trailing number is returned unchanged
+(trimmed). `missing` passes through.
+"""
+chapter_base_trailing_num(::Missing) = missing
+chapter_base_trailing_num(title::AbstractString) =
+    strip(replace(title, _TRAILING_NUM_MARKER => ""))
+
 """
     add_chapters!(df; base_fn=chapter_base) -> df
 
@@ -181,9 +210,11 @@ Episodes are grouped into maximal *consecutive* runs sharing the same base title
 as computed by `base_fn` (default [`chapter_base`](@ref); pass
 [`chapter_base_no_serial`](@ref) for novels titled with a leading global episode
 serial instead of chapter numbering, [`chapter_base_prefix`](@ref) for novels
-whose per-episode subtitle changes every episode, or
+whose per-episode subtitle changes every episode,
 [`chapter_base_episode_numbered`](@ref) for novels titled with a leading episode
-number instead of a chapter number). The run breaks whenever the base title
+number instead of a chapter number, or [`chapter_base_trailing_num`](@ref) for
+novels whose within-chapter part marker is a bare trailing number). The run
+breaks whenever the base title
 changes, so a base title that reappears later (after an intervening chapter)
 starts a fresh chapter rather than merging non-adjacent episodes. A `missing`
 title forms a base of its own and never merges with a neighbour. An empty frame
