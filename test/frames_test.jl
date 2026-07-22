@@ -134,6 +134,53 @@ end
     @test maximum(episodes.chapter_no) == 25
 end
 
+@testset "Frames.chapter_base_episode_numbered" begin
+    # Strips a leading episode number ("1화 - ", "47화 – ") before delegating to
+    # a chapter_base-like trailing-marker strip, so same-chapter episodes
+    # numbered per-episode (not per-chapter) collapse to the same base.
+    base_ep = Frames.chapter_base_episode_numbered
+    @test base_ep("1화 - 호텔 탐색") == "호텔 탐색"
+    @test base_ep("2화 - 호텔 탐색(2)") == "호텔 탐색"
+    @test base_ep("47화 – 104호, 저주의 방") == "104호, 저주의 방"  # en-dash prefix
+    # A trailing "Fin" annotation after the part marker is also stripped.
+    @test base_ep("10화 - 기묘한 가족 (5)  Fin") == "기묘한 가족"
+    @test base_ep("218화 – 입시 명문 호텔고 Re (12) Fin(?)") == "입시 명문 호텔고 Re"
+    # No leading episode number: behaves like chapter_base.
+    @test base_ep("프롤로그 - 이상한 꿈") == "프롤로그 - 이상한 꿈"
+    # Trailing text after the marker that isn't a bare "Fin" is left alone —
+    # deliberately conservative, since it's usually a real subtitle fragment.
+    @test base_ep("1198화 - 수신제가치국평천하 (6) + 일부 추가.") ==
+          "수신제가치국평천하 (6) + 일부 추가."
+    @test ismissing(base_ep(missing))
+
+    # Regression: novel 102155, titled "N화 - <subtitle>(±part marker)". With
+    # the default chapter_base, the leading episode number makes every episode
+    # look like a new chapter (chapter_base keeps leading numbering, since it's
+    # normally what distinguishes chapters — but here it's per-episode, not
+    # per-chapter). chapter_base_episode_numbered strips it first so
+    # same-chapter episodes collapse together.
+    episodes = Load.read_episodes(FIXTURES, 102155)
+    Frames.add_chapters!(episodes; base_fn = Frames.chapter_base_episode_numbered)
+    # Episodes 6-10 ("6화".."10화", incl. the "(5)  Fin"-suffixed 10화) are one
+    # chapter: "101호, 저주의 방 - '기묘한 가족'".
+    fin_chapter_no = episodes.chapter_no[findfirst(==(1179669), episodes.episode_no)]
+    same_chapter_range =
+        findfirst(==(1179669), episodes.episode_no):findfirst(
+            ==(1181977),
+            episodes.episode_no,
+        )
+    @test all(==(fin_chapter_no), episodes.chapter_no[same_chapter_range])
+    @test episodes.chapter_title[first(same_chapter_range)] ==
+          "101호, 저주의 방 - '기묘한 가족'"
+
+    # Without stripping the leading episode number, the same data falls into
+    # one chapter per episode (the bug this was written to fix).
+    default_grouped = Load.read_episodes(FIXTURES, 102155)
+    Frames.add_chapters!(default_grouped)
+    @test length(unique(default_grouped.chapter_no[same_chapter_range])) ==
+          length(same_chapter_range)
+end
+
 @testset "Frames.add_chapter_length!" begin
     episodes = Load.read_episodes(FIXTURES, 777)
     Frames.add_chapters!(episodes)
