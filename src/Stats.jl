@@ -16,7 +16,8 @@ export summary,
     usable_chapters,
     ViewAggregates,
     EpisodeSummary,
-    ChapterDeclineLeverage
+    ChapterDeclineLeverage,
+    ChapterLengthDeclineCorrelation
 
 """
     ViewAggregates
@@ -192,17 +193,28 @@ _correlation_undefined(chapters) =
     iszero(var(chapters.slope))
 
 """
-    chapter_length_decline_correlation(df) -> NamedTuple
+    ChapterLengthDeclineCorrelation
+
+Result of [`chapter_length_decline_correlation`](@ref): the Pearson
+correlation alongside the per-chapter DataFrame it was computed over.
+"""
+struct ChapterLengthDeclineCorrelation
+    pearson::Union{Float64,Missing}
+    chapters::DataFrame
+end
+
+"""
+    chapter_length_decline_correlation(df) -> ChapterLengthDeclineCorrelation
 
 Pearson correlation (via `Statistics.cor`) between `chapter_length` and the
 within-chapter view-decline `slope` across chapters (see
 [`chapter_decline_slopes`](@ref)), alongside the per-chapter DataFrame used to
 compute it.
 
-Returns `(; pearson, chapters)`. Chapters with a `missing` slope are excluded
-from the correlation first (but are still present in `chapters`). `pearson` is
-`missing` if fewer than two chapters remain, or if `chapter_length` or `slope`
-is constant across all remaining chapters.
+Returns a [`ChapterLengthDeclineCorrelation`](@ref). Chapters with a `missing`
+slope are excluded from the correlation first (but are still present in
+`chapters`). `pearson` is `missing` if fewer than two chapters remain, or if
+`chapter_length` or `slope` is constant across all remaining chapters.
 
 A negative correlation supports the hypothesis that longer chapters
 (episode 장편화) accelerate view-count decline.
@@ -212,7 +224,7 @@ function chapter_length_decline_correlation(df)
     usable = usable_chapters(chapters)
     pearson =
         _correlation_undefined(usable) ? missing : cor(usable.chapter_length, usable.slope)
-    (; pearson, chapters)
+    ChapterLengthDeclineCorrelation(pearson, chapters)
 end
 
 """
