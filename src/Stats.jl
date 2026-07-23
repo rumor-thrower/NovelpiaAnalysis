@@ -13,42 +13,71 @@ export summary,
     chapter_length_decline_correlation,
     spearman_cor,
     chapter_length_decline_leverage,
-    usable_chapters
+    usable_chapters,
+    ViewAggregates,
+    EpisodeSummary
 
 """
-    _view_aggregates(episodes, views) -> NamedTuple
+    ViewAggregates
 
-Aggregate the view columns of `summary`: total/median/max over `views` (the
-non-`missing` `count_view` values), plus first-to-last retention read off the
-raw `episodes.count_view`.
+Aggregate view-count statistics for an episode DataFrame: total/median/max
+over the non-`missing` `count_view` values, plus first-to-last retention read
+off the raw `count_view` column.
 
-All four fields are `missing` when `views` is empty — no `count_view` survived,
-so no aggregate is defined. Retention is additionally `missing` when either
-endpoint is `missing` or the first view is zero (an undefined ratio), even
-though the aggregates over the surviving views remain well-defined.
+All four fields are `missing` when no `count_view` survives (an empty frame or
+one where every `count_view` is `missing`). `first_last_retention` is
+additionally `missing` when either endpoint is `missing` or the first view is
+zero (an undefined ratio), even though the other aggregates remain
+well-defined.
+"""
+struct ViewAggregates
+    total_views::Union{Int,Missing}
+    median_views::Union{Float64,Missing}
+    max_views::Union{Int,Missing}
+    first_last_retention::Union{Float64,Missing}
+end
+
+"""
+    _view_aggregates(episodes, views) -> ViewAggregates
+
+Compute the `ViewAggregates` for `summary`. `views` is the non-`missing`
+`count_view` values; `episodes.count_view` (with `missing`s intact) is used
+for the first/last retention endpoints.
 """
 function _view_aggregates(episodes, views)
-    isempty(views) && return (
-        total_views = missing,
-        median_views = missing,
-        max_views = missing,
-        first_last_retention = missing,
-    )
+    isempty(views) && return ViewAggregates(missing, missing, missing, missing)
     first_view = first(episodes.count_view)
     last_view = last(episodes.count_view)
     retention =
         (ismissing(first_view) || ismissing(last_view) || iszero(first_view)) ? missing :
         last_view / first_view
-    (
-        total_views = sum(views),
-        median_views = median(views),
-        max_views = maximum(views),
-        first_last_retention = retention,
-    )
+    ViewAggregates(sum(views), median(views), maximum(views), retention)
 end
 
 """
-    summary(episodes) -> NamedTuple
+    EpisodeSummary
+
+Summary statistics over an episode DataFrame: episode count, free/paid split,
+and view aggregates (see [`ViewAggregates`](@ref)).
+
+View-aggregate fields (`total_views`, `median_views`, `max_views`,
+`first_last_retention`) are readable directly off an `EpisodeSummary`, e.g.
+`s.total_views`, without going through `s.views`.
+"""
+struct EpisodeSummary
+    episode_count::Int
+    free_count::Int
+    paid_count::Int
+    views::ViewAggregates
+end
+
+function Base.getproperty(s::EpisodeSummary, name::Symbol)
+    name in fieldnames(EpisodeSummary) && return getfield(s, name)
+    getfield(getfield(s, :views), name)
+end
+
+"""
+    summary(episodes) -> EpisodeSummary
 
 Summary statistics over an episode DataFrame: episode count, free/paid split,
 total/median/max views, and first-to-last retention (last `count_view` divided
@@ -58,12 +87,7 @@ function summary(episodes)
     views = skipmissing(episodes.count_view) |> collect
     n = nrow(episodes)
     free_count = count(episodes.is_free)
-    (
-        episode_count = n,
-        free_count = free_count,
-        paid_count = n - free_count,
-        _view_aggregates(episodes, views)...,
-    )
+    EpisodeSummary(n, free_count, n - free_count, _view_aggregates(episodes, views))
 end
 
 """
