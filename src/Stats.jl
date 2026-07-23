@@ -15,7 +15,8 @@ export summary,
     chapter_length_decline_leverage,
     usable_chapters,
     ViewAggregates,
-    EpisodeSummary
+    EpisodeSummary,
+    ChapterDeclineLeverage
 
 """
     ViewAggregates
@@ -240,8 +241,35 @@ function spearman_cor(x, y)
 end
 
 """
+    ChapterDeclineLeverage
+
+Result of [`chapter_length_decline_leverage`](@ref): `pearson`/`spearman`
+correlation of chapter length against decline slope, alongside the
+usable/long/scored chapter counts the correlation was taken over.
+
+Splats like a `NamedTuple` (`(; leverage..., other_field = x)` works), so
+callers that merge it into a larger `NamedTuple` don't need to change.
+"""
+struct ChapterDeclineLeverage
+    pearson::Union{Float64,Missing}
+    spearman::Union{Float64,Missing}
+    usable_n::Int
+    long_n::Int
+    scored_n::Int
+end
+
+Base.propertynames(::ChapterDeclineLeverage) =
+    (:pearson, :spearman, :usable_n, :long_n, :scored_n)
+
+function Base.iterate(lev::ChapterDeclineLeverage, state = 1)
+    names = propertynames(lev)
+    state > length(names) && return nothing
+    (names[state] => getfield(lev, names[state]), state + 1)
+end
+
+"""
     chapter_length_decline_leverage(chapters; long_chapter_cutoff, drop_long_chapters=false)
-        -> NamedTuple
+        -> ChapterDeclineLeverage
 
 Leverage analysis over the per-chapter DataFrame from
 [`chapter_length_decline_correlation`](@ref) (or [`chapter_decline_slopes`](@ref)):
@@ -255,11 +283,11 @@ chapters are those longer than `long_chapter_cutoff` episodes. When
 `drop_long_chapters` is `true` the correlations are computed over just the
 chapters at or below the cutoff; otherwise over the full `usable` set.
 
-Returns `(; pearson, spearman, usable_n, long_n, scored_n)`. `pearson` and
-`spearman` are `missing` when fewer than two chapters are scored or their
-`chapter_length` or `slope` is constant (undefined correlation — a rank
-correlation over a constant `slope` would only echo the positional
-tie-breaking of [`spearman_cor`](@ref), not a real trend).
+Returns a [`ChapterDeclineLeverage`](@ref). `pearson` and `spearman` are
+`missing` when fewer than two chapters are scored or their `chapter_length`
+or `slope` is constant (undefined correlation — a rank correlation over a
+constant `slope` would only echo the positional tie-breaking of
+[`spearman_cor`](@ref), not a real trend).
 """
 function chapter_length_decline_leverage(
     chapters;
@@ -271,12 +299,12 @@ function chapter_length_decline_leverage(
     scored_rows = drop_long_chapters ? .!is_long : Colon()
     scored = view(usable, scored_rows, :)
     undefined = _correlation_undefined(scored)
-    (
-        pearson = undefined ? missing : cor(scored.chapter_length, scored.slope),
-        spearman = undefined ? missing : spearman_cor(scored.chapter_length, scored.slope),
-        usable_n = nrow(usable),
-        long_n = count(is_long),
-        scored_n = nrow(scored),
+    ChapterDeclineLeverage(
+        undefined ? missing : cor(scored.chapter_length, scored.slope),
+        undefined ? missing : spearman_cor(scored.chapter_length, scored.slope),
+        nrow(usable),
+        count(is_long),
+        nrow(scored),
     )
 end
 
