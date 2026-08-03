@@ -58,35 +58,17 @@ shifts within the plot area to fit whichever mix of signs is present.
   legend in the top-right corner. Defaults to `nothing`.
 - `outfile`       : if given, also writes the SVG to this path.
 """
-function barchart(
-    labels,
-    vals;
-    colors = "#4e79a7",
-    title = nothing,
-    width = nothing,
-    height = 280,
-    bar_w = nothing,
-    gap = 0,
-    rotate_labels::Bool = false,
-    bold_values::Bool = false,
-    legend = nothing,
-    outfile = nothing,
-)
-    n = length(labels)
-    iszero(n) && return HTML("<p style='font-family:sans-serif'>no data</p>")
-
-    present = collect(skipmissing(vals))
-    max_v = isempty(present) ? 0.0 : max(maximum(present), 0.0)  # extends the baseline up
-    min_v = isempty(present) ? 0.0 : min(minimum(present), 0.0)  # extends the baseline down
+# All pixel geometry for the plot: SVG canvas size, baseline, bar slots, and
+# the label font/line metrics needed to place x-axis text. Kept independent of
+# `vals`/`colors`/rendering so the layout math has a single, testable home.
+function _bar_geometry(strs, n, min_v, max_v; width, height, bar_w, gap, rotate_labels)
     span = max_v - min_v
     span = ifelse(iszero(span), 1.0, span)
-    color_at(i) = colors isa AbstractString ? colors : colors[i]
 
     # `height` sizes the plot area; the room x-axis labels need is measured from
     # the labels themselves and added below it, so long or rotated labels extend
     # the drawing rather than spilling out of it.
     label_fs = ifelse(rotate_labels, 11, 12)
-    strs = string.(labels)
     n_lines = maximum(count(==('\n'), s) + 1 for s in strs)
     longest = maximum(_line_px(s, label_fs) for s in strs)
     line_h = label_fs + 3
@@ -117,40 +99,45 @@ function barchart(
     step = bw + gap
     x0 = 60 + left_pad                                # first bar's left edge
 
-    # `dy` inside a rotated <text> runs along the rotated normal, so stacked
-    # lines separate correctly in both the rotated and horizontal cases.
-    tspans(label, anchor_x) = join((
-        "<tspan x=\"$anchor_x\" dy=\"$(ifelse(isone(i), 0, line_h))\">$(_svg_text(line))</tspan>"
-        for (i, line) in enumerate(split(label, '\n'))
-    ),)
-    rotated_label(cx, label) = (
-        "  <text x=\"$cx\" y=\"$axis_y\" text-anchor=\"end\" ",
-        "font-size=\"$label_fs\" ",
-        "transform=\"rotate(-45 $cx $axis_y)\">$(tspans(label, cx))</text>\n",
-    )
-    horizontal_label(cx, label) = (
-        "  <text x=\"$cx\" y=\"$(axis_y + label_fs)\" text-anchor=\"middle\" ",
-        "font-size=\"$label_fs\">$(tspans(label, cx))</text>\n",
-    )
+    (; H, W, px_per_unit, axis_y, baseline_y, bw, step, x0, label_fs, line_h)
+end
 
+# `dy` inside a rotated <text> runs along the rotated normal, so stacked
+# lines separate correctly in both the rotated and horizontal cases.
+_tspans(label, anchor_x, line_h) = join((
+    "<tspan x=\"$anchor_x\" dy=\"$(ifelse(isone(i), 0, line_h))\">$(_svg_text(line))</tspan>"
+    for (i, line) in enumerate(split(label, '\n'))
+),)
+
+function _axis_label_svg(cx, label, geo, rotate_labels)
+    if rotate_labels
+        "  <text x=\"$cx\" y=\"$(geo.axis_y)\" text-anchor=\"end\" " *
+        "font-size=\"$(geo.label_fs)\" " *
+        "transform=\"rotate(-45 $cx $(geo.axis_y))\">$(_tspans(label, cx, geo.line_h))</text>\n"
+    else
+        "  <text x=\"$cx\" y=\"$(geo.axis_y + geo.label_fs)\" text-anchor=\"middle\" " *
+        "font-size=\"$(geo.label_fs)\">$(_tspans(label, cx, geo.line_h))</text>\n"
+    end
+end
+
+# Renders every `<g>` bar group (rect + axis label + value label) into one SVG
+# fragment string.
+function _bars_svg(strs, vals, geo; color_at, rotate_labels, bold_values)
     rects = IOBuffer()
     for (i, v) in enumerate(vals)
-        h = ismissing(v) ? 0 : round(Int, abs(v) * px_per_unit)
-        x = x0 + (i - 1) * step
-        cx = x + (bw ÷ 2)
-        bar_top = baseline_y - ifelse(ismissing(v) || v >= 0, h, 0)
-        label = strs[i]                               # `tspans` escapes each line
+        h = ismissing(v) ? 0 : round(Int, abs(v) * geo.px_per_unit)
+        x = geo.x0 + (i - 1) * geo.step
+        cx = x + (geo.bw ÷ 2)
+        bar_top = geo.baseline_y - ifelse(ismissing(v) || v >= 0, h, 0)
+        label = strs[i]                               # `_tspans` escapes each line
 
         print(rects, "<g>\n")
         print(
             rects,
-            "  <rect x=\"$x\" y=\"$bar_top\" width=\"$(bw-3)\" height=\"$h\" ",
+            "  <rect x=\"$x\" y=\"$bar_top\" width=\"$(geo.bw-3)\" height=\"$h\" ",
             "fill=\"$(color_at(i))\" rx=\"2\"/>\n",
         )
-        print(
-            rects,
-            (rotate_labels ? rotated_label(cx, label) : horizontal_label(cx, label))...,
-        )
+        print(rects, _axis_label_svg(cx, label, geo, rotate_labels))
         if !ismissing(v)
             vw = ifelse(bold_values, " font-weight=\"bold\"", "")
             value_y = bar_top + ifelse(v >= 0, -4, h + 12)
@@ -162,33 +149,72 @@ function barchart(
         end
         print(rects, "</g>\n")
     end
+    String(take!(rects))
+end
 
-    legend_svg =
-        isnothing(legend) ? "" :
-        join(
-            (
-                "<g transform=\"translate($(W-130+i*55),12)\">" *
-                "<rect width=\"12\" height=\"12\" fill=\"$c\" rx=\"2\"/>" *
-                "<text x=\"16\" y=\"10\" font-size=\"11\">$(_svg_text(l))</text></g>" for
-                (i, (l, c)) in enumerate(legend)
-            ),
-            "\n",
-        )
-
+# Wraps the legend + bar fragments in the outer `<svg>` element and, if
+# `outfile` is given, writes it out as a side effect.
+function _render_svg(geo, legend_svg, bars; outfile)
     svg =
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"$W\" height=\"$H\" " *
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"$(geo.W)\" height=\"$(geo.H)\" " *
         "style=\"font-family:sans-serif;max-width:100%\">\n" *
         legend_svg *
         "\n" *
-        String(take!(rects)) *
+        bars *
         "</svg>"
-
     isnothing(outfile) || write(outfile, svg)
+    svg
+end
 
+# Wraps `svg` with an optional `<h4>` title into the final Pluto-displayable
+# `HTML`.
+function _wrap_html(svg, title)
     head =
         isnothing(title) ? "" :
         "<h4 style=\"font-family:sans-serif;margin:8px 0\">$(_svg_text(title))</h4>"
     HTML("<div>$head$svg</div>")
+end
+
+_legend_svg(::Nothing, W) = ""
+_legend_svg(legend, W) = join(
+    (
+        "<g transform=\"translate($(W-130+i*55),12)\">" *
+        "<rect width=\"12\" height=\"12\" fill=\"$c\" rx=\"2\"/>" *
+        "<text x=\"16\" y=\"10\" font-size=\"11\">$(_svg_text(l))</text></g>" for
+        (i, (l, c)) in enumerate(legend)
+    ),
+    "\n",
+)
+
+function barchart(
+    labels,
+    vals;
+    colors = "#4e79a7",
+    title = nothing,
+    width = nothing,
+    height = 280,
+    bar_w = nothing,
+    gap = 0,
+    rotate_labels::Bool = false,
+    bold_values::Bool = false,
+    legend = nothing,
+    outfile = nothing,
+)
+    n = length(labels)
+    iszero(n) && return HTML("<p style='font-family:sans-serif'>no data</p>")
+
+    present = collect(skipmissing(vals))
+    max_v = isempty(present) ? 0.0 : max(maximum(present), 0.0)  # extends the baseline up
+    min_v = isempty(present) ? 0.0 : min(minimum(present), 0.0)  # extends the baseline down
+    color_at(i) = colors isa AbstractString ? colors : colors[i]
+    strs = string.(labels)
+
+    geo = _bar_geometry(strs, n, min_v, max_v; width, height, bar_w, gap, rotate_labels)
+    bars = _bars_svg(strs, vals, geo; color_at, rotate_labels, bold_values)
+    legend_svg = _legend_svg(legend, geo.W)
+
+    svg = _render_svg(geo, legend_svg, bars; outfile)
+    _wrap_html(svg, title)
 end
 
 end # module Charts
