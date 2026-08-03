@@ -76,8 +76,9 @@ function barchart(
     iszero(n) && return HTML("<p style='font-family:sans-serif'>no data</p>")
 
     present = collect(skipmissing(vals))
-    max_v = isempty(present) ? 0.0 : max(maximum(present), 0.0)  # extends the baseline up
-    min_v = isempty(present) ? 0.0 : min(minimum(present), 0.0)  # extends the baseline down
+    min_v, max_v =
+        isempty(present) ? (0.0, 0.0) :
+        (min(minimum(present), 0.0), max(maximum(present), 0.0))  # extends baseline down/up
     span = max_v - min_v
     span = ifelse(iszero(span), 1.0, span)
     color_at(i) = colors isa AbstractString ? colors : colors[i]
